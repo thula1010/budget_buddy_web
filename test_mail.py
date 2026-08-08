@@ -1,21 +1,25 @@
-from services.notification import send_budget_alert_email, send_forecast_email, send_goal_plan_email
+"""Gửi thử email cảnh báo bằng cấu hình Resend/SMTP hiện tại."""
 
-# Thay địa chỉ email nhận bằng EMAIL THẬT CỦA BẠN để kiểm tra hộp thư
-RECEIVER_EMAIL = "your_actual_email@gmail.com"
+import os
 
-print("⏳ Đang tiến hành gửi email test...")
+from config.mailer import email_delivery_configured
+from services.notification import send_budget_alert_email
 
-# Test 1: Gửi thử mail Cảnh báo ngân sách
+
+receiver = os.environ.get("TEST_EMAIL_RECEIVER")
+if not receiver:
+    raise SystemExit("Hãy đặt TEST_EMAIL_RECEIVER=dia-chi-email-cua-ban trước khi chạy.")
+if not email_delivery_configured():
+    raise SystemExit("Chưa cấu hình Resend hoặc SMTP trong file .env.")
+
+print("Đang gửi email cảnh báo ngân sách thử nghiệm...")
 success = send_budget_alert_email(
-    to_email=RECEIVER_EMAIL,
-    username="User Test",
+    to_email=receiver,
+    username="Người dùng thử nghiệm",
     category="Ăn uống",
-    spent=1500000,
-    limit=1000000,
-    alert_type="overbudget"
+    spent=1_500_000,
+    limit=1_000_000,
+    alert_type="overbudget",
+    idempotency_key="manual-budget-alert-test",
 )
-
-if success:
-    print("✅ Gửi email test thành công! Hãy kiểm tra Hộp thư đến (hoặc thư mục Spam).")
-else:
-    print("❌ Gửi email thất bại. Hãy kiểm tra lại EMAIL_USER và EMAIL_PASS trong file .env")
+print("Gửi thành công. Hãy kiểm tra hộp thư." if success else "Gửi thất bại. Hãy kiểm tra cấu hình email.")

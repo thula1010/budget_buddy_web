@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cài đặt · Budget Buddy</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { --primary:#0f766e; --ink:#17332f; --muted:#64748b; --line:#dce9e6; }
+    body { margin:0; font-family:Inter,system-ui,sans-serif; background:#f6faf9; color:var(--ink); }
+    header { height:72px; padding:0 max(24px,calc((100% - 980px)/2)); display:flex; align-items:center; justify-content:space-between; background:#fff; border-bottom:1px solid var(--line); }
+    .brand { color:var(--ink); font-size:19px; font-weight:850; text-decoration:none; }
+    .brand span { color:var(--primary); }
+    header nav { display:flex; gap:18px; align-items:center; }
+    header nav a { color:var(--muted); text-decoration:none; font-size:14px; font-weight:700; }
+    main { width:min(760px,calc(100% - 32px)); margin:42px auto 80px; }
+    h1 { font-size:30px; margin:0 0 8px; }
+    .lead { color:var(--muted); margin:0 0 28px; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:18px; padding:24px; margin-bottom:20px; box-shadow:0 8px 28px rgba(15,118,110,.05); }
+    h2 { font-size:18px; margin:0 0 18px; }
+    .identity { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .label { color:var(--muted); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+    .value { margin-top:5px; font-weight:750; overflow-wrap:anywhere; }
+    .verified { color:#047857; }
+    .option { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding:16px 0; border-top:1px solid #edf3f1; }
+    .option:first-of-type { border-top:0; padding-top:0; }
+    .option p { color:var(--muted); margin:5px 0 0; line-height:1.5; font-size:14px; }
+    input[type=checkbox] { width:21px; height:21px; accent-color:var(--primary); }
+    button { border:0; border-radius:10px; padding:11px 16px; font:inherit; font-weight:750; cursor:pointer; }
+    .primary { background:var(--primary); color:#fff; }
+    .danger { border-color:#fecaca; }
+    .danger h2 { color:#b91c1c; }
+    .danger p { color:var(--muted); line-height:1.55; }
+    .danger button { background:#b91c1c; color:#fff; }
+    dialog { width:min(460px,calc(100% - 32px)); border:0; border-radius:18px; padding:26px; box-shadow:0 25px 80px rgba(15,23,42,.25); }
+    dialog::backdrop { background:rgba(15,23,42,.55); }
+    label { display:block; margin:14px 0 6px; font-size:13px; font-weight:750; }
+    input[type=password], input[type=text] { width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:12px; font:inherit; }
+    .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+    .cancel { background:#e2e8f0; color:#334155; }
+    #message { min-height:22px; margin:14px 0 0; font-size:14px; color:#047857; }
+    #deleteError { color:#b91c1c; min-height:20px; font-size:14px; }
+    @media(max-width:600px){ .identity{grid-template-columns:1fr} header{padding:0 16px} .card{padding:20px} }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/"><span>Budget Buddy</span> · Smart Finance</a>
+    <nav><a href="/">Tổng quan</a><a href="/logout">Đăng xuất</a></nav>
+  </header>
+  <main>
+    <h1>Cài đặt tài khoản</h1>
+    <p class="lead">Quản lý email thông báo và dữ liệu cá nhân của bạn.</p>
+
+    <section class="card">
+      <h2>Thông tin tài khoản</h2>
+      <div class="identity">
+        <div><div class="label">Tên đăng nhập</div><div class="value">{{ user.username }}</div></div>
+        <div><div class="label">Email</div><div class="value">{{ user.email }}</div></div>
+        <div><div class="label">Trạng thái email</div><div class="value verified">{% if user.email_verified %}✓ Đã xác minh{% else %}Chưa xác minh{% endif %}</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Thông báo email</h2>
+      <label class="option">
+        <span><strong>Báo cáo chi tiêu hàng tuần</strong><p>Nhận tổng hợp thu, chi, so sánh tuần trước và các nhóm chi tiêu lớn.</p></span>
+        <input id="weekly" type="checkbox" {% if user.weekly_email_enabled %}checked{% endif %}>
+      </label>
+      <label class="option">
+        <span><strong>Cảnh báo vượt ngân sách</strong><p>Gửi email một lần khi một danh mục vừa vượt hạn mức trong tháng.</p></span>
+        <input id="budget" type="checkbox" {% if user.budget_alerts_enabled %}checked{% endif %}>
+      </label>
+      <button class="primary" id="savePreferences">Lưu tùy chọn</button>
+      <div id="message"></div>
+    </section>
+
+    <section class="card danger">
+      <h2>Xóa tài khoản</h2>
+      <p>Xóa vĩnh viễn tài khoản cùng toàn bộ tài khoản tiền, giao dịch, ngân sách và mục tiêu của bạn. Dữ liệu không thể khôi phục.</p>
+      <button id="openDelete">Xóa tài khoản</button>
+    </section>
+  </main>
+
+  <dialog id="deleteDialog">
+    <h2>Xác nhận xóa tài khoản</h2>
+    <p>Nhập mật khẩu và chữ <strong>DELETE</strong>. Hành động này không thể hoàn tác.</p>
+    <label for="password">Mật khẩu</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <label for="confirmation">Nhập DELETE</label>
+    <input id="confirmation" type="text" autocomplete="off">
+    <div id="deleteError"></div>
+    <div class="actions"><button class="cancel" id="cancelDelete">Hủy</button><button class="danger" id="confirmDelete">Xóa vĩnh viễn</button></div>
+  </dialog>
+  <script>
+    const message = document.getElementById('message');
+    const weekly = document.getElementById('weekly');
+    const budget = document.getElementById('budget');
+    const password = document.getElementById('password');
+    const confirmation = document.getElementById('confirmation');
+    document.getElementById('savePreferences').onclick = async () => {
+      const response = await fetch('/api/account/preferences', {
+        method: 'PATCH', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({weekly_email_enabled: weekly.checked, budget_alerts_enabled: budget.checked})
+      });
+      const result = await response.json();
+      message.textContent = response.ok ? 'Đã lưu tùy chọn.' : (result.error || 'Không thể lưu.');
+      message.style.color = response.ok ? '#047857' : '#b91c1c';
+    };
+    const dialog = document.getElementById('deleteDialog');
+    document.getElementById('openDelete').onclick = () => dialog.showModal();
+    document.getElementById('cancelDelete').onclick = () => dialog.close();
+    document.getElementById('confirmDelete').onclick = async () => {
+      const response = await fetch('/api/account', {
+        method:'DELETE', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({password:password.value, confirmation:confirmation.value})
+      });
+      const result = await response.json();
+      if (response.ok) window.location.href = result.redirect || '/login';
+      else document.getElementById('deleteError').textContent = result.error || 'Không thể xóa tài khoản.';
+    };
+  </script>
+</body>
+</html>

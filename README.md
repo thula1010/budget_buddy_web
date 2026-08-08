@@ -11,6 +11,9 @@
 - AI Coach phân tích số dư, chi tiêu, ngân sách và mục tiêu thực tế của người dùng.
 - Chụp hoặc tải ảnh hóa đơn trên điện thoại; AI tự điền cửa hàng, tổng tiền, ngày và danh mục.
 - Tự động nâng cấp database từ cấu trúc cũ mà không làm mất giao dịch/mục tiêu.
+- Xác minh email bắt buộc khi tạo tài khoản, liên kết hết hạn sau 24 giờ.
+- Gửi cảnh báo đúng thời điểm danh mục vừa vượt ngân sách và báo cáo chi tiêu hàng tuần.
+- Người dùng tự bật/tắt email hoặc xóa vĩnh viễn tài khoản trong trang Cài đặt.
 
 ## Cài đặt
 
@@ -49,6 +52,32 @@ Không có API key, ứng dụng vẫn hoạt động đầy đủ với bộ g�
 
 Ảnh OCR hỗ trợ JPG, PNG và WebP, tối đa 8 MB. Trên điện thoại, nút chọn ảnh có thể mở camera sau.
 
+## Email xác minh và thông báo
+
+Khi triển khai trên Render, dùng Resend qua HTTPS. Khai báo các biến sau trong **Environment**:
+
+```dotenv
+APP_BASE_URL=https://ten-ung-dung.onrender.com
+APP_TIMEZONE=Asia/Ho_Chi_Minh
+EMAIL_VERIFICATION_REQUIRED=1
+RESEND_API_KEY=re_xxxxxxxxx
+EMAIL_FROM=Budget Buddy <notifications@ten-mien-da-xac-minh.com>
+```
+
+`EMAIL_FROM` phải thuộc tên miền đã xác minh trên Resend. Khi chạy ở máy chủ khác có hỗ trợ SMTP, có thể thay bằng `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` và `SMTP_USE_TLS` như trong `.env.example`.
+
+Để gửi báo cáo tuần trên Render, tạo **Cron Job** dùng cùng repository và các biến môi trường với Web Service:
+
+Web Service và Cron Job bắt buộc dùng cùng biến `DATABASE_URL` trỏ tới một PostgreSQL dùng chung. Không dùng SQLite mặc định cho bản triển khai này vì hai dịch vụ không chia sẻ cùng tệp database.
+
+```text
+Build Command: pip install -r requirements.txt
+Command: flask --app app send-weekly-reports
+Schedule: 0 1 * * MON
+```
+
+Lịch trên chạy lúc 01:00 UTC mỗi thứ Hai, tức 08:00 tại Việt Nam. Lệnh chỉ gửi cho tài khoản đã xác minh, đang bật báo cáo tuần, và không gửi lặp lại cùng một tuần.
+
 ## Kiểm thử
 
 ```powershell
@@ -73,3 +102,8 @@ Bộ kiểm thử bao phủ:
 | `OPENAI_API_KEY` | trống | Bật AI Coach nâng cao và OCR |
 | `OPENAI_MODEL` | `gpt-5.6-luna` | Model dùng cho AI/OCR |
 | `FLASK_DEBUG` | `0` | Đặt `1` chỉ khi phát triển |
+| `APP_BASE_URL` | `http://127.0.0.1:5000` | Tên miền đầy đủ dùng trong liên kết email |
+| `APP_TIMEZONE` | `Asia/Ho_Chi_Minh` | Múi giờ xác định tuần báo cáo |
+| `EMAIL_VERIFICATION_REQUIRED` | `1` | Bắt buộc xác minh email khi đăng ký |
+| `RESEND_API_KEY` | trống | API key gửi email qua HTTPS |
+| `EMAIL_FROM` | trống | Tên và địa chỉ người gửi đã xác minh |

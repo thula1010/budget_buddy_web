@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xác minh email · Budget Buddy</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; font-family: Inter, system-ui, sans-serif; background: #f3faf8; color: #16302c; }
+    .card { width: min(480px, 100%); background: white; border: 1px solid #dbe9e5; border-radius: 24px; padding: 36px; box-shadow: 0 20px 60px rgba(15, 118, 110, .12); }
+    .logo { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; background: #0f766e; color: white; font-size: 25px; }
+    h1 { margin: 22px 0 10px; font-size: 27px; }
+    p { margin: 0 0 20px; color: #64748b; line-height: 1.65; }
+    strong { color: #16302c; overflow-wrap: anywhere; }
+    label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 7px; }
+    input { width: 100%; padding: 13px 14px; border: 1px solid #cbd5e1; border-radius: 11px; font: inherit; }
+    button { width: 100%; margin-top: 12px; border: 0; border-radius: 11px; padding: 13px; background: #0f766e; color: white; font: inherit; font-weight: 750; cursor: pointer; }
+    a { color: #0f766e; font-weight: 700; text-decoration: none; }
+    .back { display: block; text-align: center; margin-top: 20px; }
+    .flash { padding: 12px 14px; margin: 0 0 18px; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 14px; }
+    .flash.success { background: #ecfdf5; color: #047857; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo">✉</div>
+    <h1>Kiểm tra hộp thư của bạn</h1>
+    <p>Chúng tôi đã gửi liên kết xác minh tới <strong>{{ email or 'email bạn đăng ký' }}</strong>. Liên kết có hiệu lực trong 24 giờ.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    <form action="/api/resend-verification" method="post">
+      <label for="email">Chưa nhận được email?</label>
+      <input id="email" name="email" type="email" required value="{{ email }}" placeholder="name@example.com">
+      <button type="submit">Gửi lại email xác minh</button>
+    </form>
+    <a class="back" href="/login">← Quay lại đăng nhập</a>
+  </main>
+</body>
+</html>

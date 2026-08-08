@@ -1,273 +1,152 @@
+from html import escape
+
+
 def format_vnd(amount):
-    return f"{amount:,.0f} ₫".replace(",", ".")
+    return f"{float(amount):,.0f} ₫".replace(",", ".")
 
 
-def alert_template(username, category, spent, limit, alert_type='overbudget'):
-    is_over = alert_type == 'overbudget'
-    title = '⚠️ Cảnh Báo Vượt Ngân Sách' if is_over else '🚨 Chi Tiêu Bất Thường'
-    color = '#DC2626' if is_over else '#D97706'
-    bg_badge = '#FEF2F2' if is_over else '#FFFBEB'
+def _email_shell(title, username, content, accent="#0D9488", cta_text=None, cta_url=None):
+    safe_title = escape(str(title))
+    safe_username = escape(str(username))
+    cta = ""
+    if cta_text and cta_url:
+        cta = f"""
+        <div style="text-align:center;margin-top:24px">
+          <a href="{escape(str(cta_url), quote=True)}" style="display:inline-block;background:{accent};color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:10px">{escape(str(cta_text))}</a>
+        </div>"""
+    return f"""<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
+<body style="margin:0;background:#F8FAFC;font-family:Arial,sans-serif;color:#334155">
+  <table width="100%" cellspacing="0" cellpadding="0" style="padding:36px 12px;background:#F8FAFC"><tr><td align="center">
+    <table width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#fff;border:1px solid #E2E8F0;border-radius:16px;overflow:hidden">
+      <tr><td style="padding:20px 24px;border-bottom:1px solid #E2E8F0"><b style="font-size:17px">💰 Budget Buddy</b><div style="font-size:12px;color:#64748B;margin-top:3px">· Smart Finance</div></td></tr>
+      <tr><td style="padding:18px 24px;background:{accent};color:#fff;font-size:19px;font-weight:700">{safe_title}</td></tr>
+      <tr><td style="padding:24px;font-size:14px;line-height:1.65"><p style="margin-top:0">Xin chào <b>{safe_username}</b>,</p>{content}{cta}</td></tr>
+      <tr><td style="padding:15px 24px;background:#F8FAFC;border-top:1px solid #E2E8F0;text-align:center;color:#64748B;font-size:12px">Thông báo tự động từ Budget Buddy · Không trả lời email này</td></tr>
+    </table>
+  </td></tr></table>
+</body></html>"""
 
-    desc = f"Danh mục <b>{category}</b> của bạn đã vượt quá hạn mức ngân sách đặt ra." if is_over else f"Hệ thống ghi nhận một khoản chi tiêu lớn bất thường ở danh mục <b>{category}</b>."
 
-    return f"""
-    <!DOCTYPE html>
-    <html lang="vi">
-    <head>
-      <meta charset="UTF-8">
-      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 40px 10px;">
-        <tr>
-          <td align="center">
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 500px; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
-              
-              <!-- Brand Header -->
-              <tr>
-                <td style="padding: 20px 24px 16px; border-bottom: 1px solid #E2E8F0;">
-                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                    <tr>
-                      <td width="38">
-                        <div style="width: 38px; height: 38px; background: #0D9488; border-radius: 10px; text-align: center; line-height: 38px; font-size: 18px;">💰</div>
-                      </td>
-                      <td style="padding-left: 12px;">
-                        <div style="font-size: 16px; font-weight: 700; color: #1E293B;">Budget Buddy</div>
-                        <div style="font-size: 12px; font-weight: 500; color: #64748B;">Smart Finance</div>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
+def verification_template(username, verification_url):
+    content = """
+      <p>Cảm ơn bạn đã đăng ký. Hãy xác minh địa chỉ email để kích hoạt tài khoản và bảo vệ dữ liệu tài chính của bạn.</p>
+      <p style="font-size:12px;color:#64748B">Liên kết có hiệu lực trong 24 giờ. Nếu bạn không tạo tài khoản, hãy bỏ qua email này.</p>
+    """
+    return _email_shell(
+        "Xác minh địa chỉ email",
+        username,
+        content,
+        cta_text="Xác minh email",
+        cta_url=verification_url,
+    )
 
-              <!-- Banner Status -->
-              <tr>
-                <td style="padding: 16px 24px; background-color: {bg_badge}; border-bottom: 1px solid #E2E8F0;">
-                  <div style="font-size: 17px; font-weight: 700; color: {color};">
-                    {title}
-                  </div>
-                </td>
-              </tr>
 
-              <!-- Main Content -->
-              <tr>
-                <td style="padding: 24px; color: #334155; font-size: 14px; line-height: 1.6;">
-                  <p style="margin: 0 0 12px; font-size: 15px;">Xin chào <b style="color: #0D9488;">{username}</b>,</p>
-                  <p style="margin: 0 0 20px; color: #475569;">{desc}</p>
-                  
-                  <!-- Detail Card -->
-                  <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;">
-                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td style="padding: 6px 0; color: #64748B; font-size: 13px; font-weight: 500;">Đã chi tiêu:</td>
-                        <td align="right" style="padding: 6px 0; color: #DC2626; font-size: 15px; font-weight: 700;">{format_vnd(spent)}</td>
-                      </tr>
-                      {f'''
-                      <tr>
-                        <td style="padding: 6px 0; color: #64748B; font-size: 13px; font-weight: 500;">Hạn mức đặt ra:</td>
-                        <td align="right" style="padding: 6px 0; color: #1E293B; font-size: 14px; font-weight: 600;">{format_vnd(limit)}</td>
-                      </tr>
-                      ''' if limit else ''}
-                    </table>
-                  </div>
-
-                  <!-- Action Button -->
-                  <div style="text-align: center;">
-                    <a href="http://127.0.0.1:5000/budgets" style="display: inline-block; background-color: #0D9488; color: #FFFFFF; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 24px; border-radius: 10px;">Kiểm tra ngân sách ngay &rarr;</a>
-                  </div>
-                </td>
-              </tr>
-
-              <!-- Footer -->
-              <tr>
-                <td style="padding: 16px 24px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0; text-align: center; color: #64748B; font-size: 12px;">
-                  Thông báo tự động từ <b>Budget Buddy</b> &middot; Quản lý chi tiêu thông minh
-                </td>
-              </tr>
-
-            </table>
-          </td>
-        </tr>
+def alert_template(
+    username, category, spent, limit, alert_type="overbudget", cta_url=None
+):
+    is_over = alert_type == "overbudget"
+    title = "⚠️ Cảnh báo vượt ngân sách" if is_over else "🚨 Chi tiêu bất thường"
+    accent = "#DC2626" if is_over else "#D97706"
+    category_name = escape(str(category))
+    over = max(0, float(spent) - float(limit or 0))
+    detail = f"""
+      <p>Danh mục <b>{category_name}</b> vừa vượt hạn mức bạn đã đặt.</p>
+      <table width="100%" cellspacing="0" cellpadding="8" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px">
+        <tr><td>Đã chi</td><td align="right"><b style="color:#DC2626">{format_vnd(spent)}</b></td></tr>
+        <tr><td>Hạn mức</td><td align="right"><b>{format_vnd(limit)}</b></td></tr>
+        <tr><td>Vượt</td><td align="right"><b style="color:#DC2626">{format_vnd(over)}</b></td></tr>
       </table>
-    </body>
-    </html>"""
+    """
+    return _email_shell(
+        title,
+        username,
+        detail,
+        accent=accent,
+        cta_text="Xem ngân sách",
+        cta_url=cta_url,
+    )
 
 
-def forecast_template(username, income, expected_expense, predicted_balance):
-    is_positive = predicted_balance >= 0
-    balance_color = '#0D9488' if is_positive else '#DC2626'
+def weekly_summary_template(
+    username,
+    week_start,
+    week_end,
+    income,
+    expense,
+    previous_expense,
+    by_category,
+    transactions,
+    app_url,
+):
+    if previous_expense > 0:
+        change = round((expense - previous_expense) / previous_expense * 100)
+        comparison = (
+            f"tăng {abs(change)}% so với tuần trước"
+            if change > 0
+            else f"giảm {abs(change)}% so với tuần trước"
+            if change < 0
+            else "bằng tuần trước"
+        )
+    else:
+        comparison = "chưa có dữ liệu tuần trước để so sánh"
 
-    return f"""
-    <!DOCTYPE html>
-    <html lang="vi">
-    <head>
-      <meta charset="UTF-8">
-      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 40px 10px;">
-        <tr>
-          <td align="center">
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 500px; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
-              
-              <!-- Brand Header -->
-              <tr>
-                <td style="padding: 20px 24px 16px; border-bottom: 1px solid #E2E8F0;">
-                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                    <tr>
-                      <td width="38">
-                        <div style="width: 38px; height: 38px; background: #0D9488; border-radius: 10px; text-align: center; line-height: 38px; font-size: 18px;">💰</div>
-                      </td>
-                      <td style="padding-left: 12px;">
-                        <div style="font-size: 16px; font-weight: 700; color: #1E293B;">Budget Buddy</div>
-                        <div style="font-size: 12px; font-weight: 500; color: #64748B;">Smart Finance</div>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
+    category_rows = "".join(
+        f'<tr><td>{escape(str(name))}</td><td align="right"><b>{format_vnd(amount)}</b></td></tr>'
+        for name, amount in sorted(by_category.items(), key=lambda item: item[1], reverse=True)[:6]
+    ) or '<tr><td colspan="2" style="color:#64748B">Chưa có khoản chi trong tuần.</td></tr>'
 
-              <!-- Banner Title -->
-              <tr>
-                <td style="padding: 20px 24px; background-color: #0D9488; color: #FFFFFF;">
-                  <div style="font-size: 12px; font-weight: 500; opacity: 0.9;">Báo Cáo Tài Chính</div>
-                  <div style="font-size: 18px; font-weight: 700; margin-top: 2px;">📈 Dự Báo Dòng Tiền Cuối Tháng</div>
-                </td>
-              </tr>
+    transaction_rows = "".join(
+        f'<tr><td>{escape(str(tx.get("date", "")))}</td><td>{escape(str(tx.get("merchant", "")))}</td><td align="right" style="color:#DC2626"><b>-{format_vnd(abs(tx.get("amount", 0)))}</b></td></tr>'
+        for tx in transactions[:8]
+        if tx.get("amount", 0) < 0
+    ) or '<tr><td colspan="3" style="color:#64748B">Không có giao dịch chi tiêu.</td></tr>'
 
-              <!-- Main Content -->
-              <tr>
-                <td style="padding: 24px; color: #334155; font-size: 14px; line-height: 1.6;">
-                  <p style="margin: 0 0 12px; font-size: 15px;">Xin chào <b style="color: #0D9488;">{username}</b>,</p>
-                  <p style="margin: 0 0 20px; color: #475569;">Dựa trên nhịp độ thu chi hiện tại, hệ thống đã tính toán dòng tiền ước tính đến cuối tháng của bạn:</p>
-                  
-                  <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;">
-                    <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                      <tr>
-                        <td style="padding: 6px 0; color: #64748B; font-size: 13px; font-weight: 500;">Thu nhập ước tính:</td>
-                        <td align="right" style="padding: 6px 0; color: #059669; font-size: 14px; font-weight: 700;">+{format_vnd(income)}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 6px 0; color: #64748B; font-size: 13px; font-weight: 500;">Chi tiêu dự kiến:</td>
-                        <td align="right" style="padding: 6px 0; color: #DC2626; font-size: 14px; font-weight: 700;">-{format_vnd(expected_expense)}</td>
-                      </tr>
-                      <tr>
-                        <td colspan="2" style="padding: 6px 0;"><div style="border-bottom: 1px dashed #CBD5E1;"></div></td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 10px 0 4px; color: #1E293B; font-size: 14px; font-weight: 700;">Số dư dự kiến cuối tháng:</td>
-                        <td align="right" style="padding: 10px 0 4px; color: {balance_color}; font-size: 16px; font-weight: 700;">{format_vnd(predicted_balance)}</td>
-                      </tr>
-                    </table>
-                  </div>
-
-                  {'<div style="background-color: #FEF2F2; border-radius: 10px; padding: 12px 14px; color: #DC2626; font-size: 13px; font-weight: 600; margin-bottom: 20px;">⚠️ Cảnh báo: Bạn có nguy cơ thâm hụt tài chính nếu duy trì tốc độ chi tiêu này.</div>' if not is_positive else ''}
-
-                  <div style="text-align: center;">
-                    <a href="http://127.0.0.1:5000/" style="display: inline-block; background-color: #1E293B; color: #FFFFFF; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 24px; border-radius: 10px;">Xem tổng quan tài chính &rarr;</a>
-                  </div>
-                </td>
-              </tr>
-
-              <!-- Footer -->
-              <tr>
-                <td style="padding: 16px 24px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0; text-align: center; color: #64748B; font-size: 12px;">
-                  Thông báo tự động từ <b>Budget Buddy</b> &middot; Quản lý chi tiêu thông minh
-                </td>
-              </tr>
-
-            </table>
-          </td>
-        </tr>
+    content = f"""
+      <p>Đây là tổng kết từ <b>{escape(str(week_start))}</b> đến <b>{escape(str(week_end))}</b>.</p>
+      <table width="100%" cellspacing="0" cellpadding="9" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;margin-bottom:18px">
+        <tr><td>Thu nhập</td><td align="right"><b style="color:#059669">+{format_vnd(income)}</b></td></tr>
+        <tr><td>Chi tiêu</td><td align="right"><b style="color:#DC2626">-{format_vnd(expense)}</b></td></tr>
+        <tr><td>Chênh lệch</td><td align="right"><b>{format_vnd(income-expense)}</b></td></tr>
       </table>
-    </body>
-    </html>"""
+      <p style="background:#ECFDF5;padding:10px 12px;border-radius:8px"><b>So sánh:</b> Chi tiêu {escape(comparison)}.</p>
+      <h3 style="font-size:15px;margin-top:22px">Chi theo danh mục</h3>
+      <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse">{category_rows}</table>
+      <h3 style="font-size:15px;margin-top:22px">Giao dịch chi tiêu gần nhất</h3>
+      <table width="100%" cellspacing="0" cellpadding="7" style="border-collapse:collapse">{transaction_rows}</table>
+    """
+    return _email_shell(
+        "📊 Báo cáo chi tiêu hàng tuần",
+        username,
+        content,
+        cta_text="Mở Budget Buddy",
+        cta_url=app_url,
+    )
 
 
-def goal_plan_template(username, goal_name, target, current_saved, monthly_needed, est_months):
-    pct = min(100, int((current_saved / target) * 100))
-
-    return f"""
-    <!DOCTYPE html>
-    <html lang="vi">
-    <head>
-      <meta charset="UTF-8">
-      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-      <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8FAFC; padding: 40px 10px;">
-        <tr>
-          <td align="center">
-            <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 500px; background-color: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
-              
-              <!-- Brand Header -->
-              <tr>
-                <td style="padding: 20px 24px 16px; border-bottom: 1px solid #E2E8F0;">
-                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                    <tr>
-                      <td width="38">
-                        <div style="width: 38px; height: 38px; background: #0D9488; border-radius: 10px; text-align: center; line-height: 38px; font-size: 18px;">💰</div>
-                      </td>
-                      <td style="padding-left: 12px;">
-                        <div style="font-size: 16px; font-weight: 700; color: #1E293B;">Budget Buddy</div>
-                        <div style="font-size: 12px; font-weight: 500; color: #64748B;">Smart Finance</div>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-
-              <!-- Banner Title -->
-              <tr>
-                <td style="padding: 20px 24px; background-color: #7C3AED; color: #FFFFFF;">
-                  <div style="font-size: 12px; font-weight: 500; opacity: 0.9;">Kế Hoạch Tiết Kiệm</div>
-                  <div style="font-size: 18px; font-weight: 700; margin-top: 2px;">🎯 Mục tiêu: {goal_name}</div>
-                </td>
-              </tr>
-
-              <!-- Main Content -->
-              <tr>
-                <td style="padding: 24px; color: #334155; font-size: 14px; line-height: 1.6;">
-                  <p style="margin: 0 0 12px; font-size: 15px;">Xin chào <b style="color: #7C3AED;">{username}</b>,</p>
-                  <p style="margin: 0 0 20px; color: #475569;">Dưới đây là cập nhật kế hoạch tích lũy chi tiết cho mục tiêu của bạn:</p>
-
-                  <!-- Progress Container -->
-                  <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px;">
-                    <div style="margin-bottom: 8px; font-size: 13px; font-weight: 700; color: #7C3AED;">
-                      Tiến độ đạt {pct}% <span style="color: #64748B; font-weight: 500; float: right;">{format_vnd(current_saved)} / {format_vnd(target)}</span>
-                    </div>
-                    
-                    <!-- Progress Bar -->
-                    <div style="height: 8px; background-color: #E2E8F0; border-radius: 99px; overflow: hidden; margin-bottom: 12px;">
-                      <div style="width: {pct}%; height: 100%; background-color: #7C3AED;"></div>
-                    </div>
-
-                    <div style="font-size: 13px; color: #64748B; border-top: 1px solid #E2E8F0; padding-top: 10px;">
-                      Còn lại: <b style="color: #1E293B;">{format_vnd(target - current_saved)}</b>
-                    </div>
-                  </div>
-
-                  <!-- Recommendation Note -->
-                  <div style="background-color: #F3E8FF; border-radius: 10px; padding: 12px 16px; color: #6B21A8; font-size: 13px; font-weight: 600; margin-bottom: 24px;">
-                    💡 Đề xuất: Để hoàn thành đúng hạn, bạn nên tích lũy <b>{format_vnd(monthly_needed)}/tháng</b> trong khoảng <b>~{est_months} tháng</b> tới.
-                  </div>
-
-                  <div style="text-align: center;">
-                    <a href="http://127.0.0.1:5000/budgets" style="display: inline-block; background-color: #7C3AED; color: #FFFFFF; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 24px; border-radius: 10px;">Nạp tiền vào mục tiêu ngay &rarr;</a>
-                  </div>
-                </td>
-              </tr>
-
-              <!-- Footer -->
-              <tr>
-                <td style="padding: 16px 24px; background-color: #F8FAFC; border-top: 1px solid #E2E8F0; text-align: center; color: #64748B; font-size: 12px;">
-                  Thông báo tự động từ <b>Budget Buddy</b> &middot; Quản lý chi tiêu thông minh
-                </td>
-              </tr>
-
-            </table>
-          </td>
-        </tr>
+def forecast_template(username, income, expected_expense, predicted_balance, app_url=None):
+    content = f"""
+      <p>Dự báo dòng tiền cuối tháng dựa trên dữ liệu hiện tại:</p>
+      <table width="100%" cellspacing="0" cellpadding="8" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px">
+        <tr><td>Thu nhập</td><td align="right"><b style="color:#059669">+{format_vnd(income)}</b></td></tr>
+        <tr><td>Chi dự kiến</td><td align="right"><b style="color:#DC2626">-{format_vnd(expected_expense)}</b></td></tr>
+        <tr><td>Số dư dự kiến</td><td align="right"><b>{format_vnd(predicted_balance)}</b></td></tr>
       </table>
-    </body>
-    </html>"""
+    """
+    return _email_shell("Dự báo dòng tiền", username, content, cta_text="Xem tổng quan", cta_url=app_url)
+
+
+def goal_plan_template(
+    username, goal_name, target, current_saved, monthly_needed, est_months, app_url=None
+):
+    pct = min(100, round(float(current_saved) / float(target) * 100)) if target else 0
+    content = f"""
+      <p>Cập nhật mục tiêu <b>{escape(str(goal_name))}</b>:</p>
+      <table width="100%" cellspacing="0" cellpadding="8" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px">
+        <tr><td>Tiến độ</td><td align="right"><b>{pct}%</b></td></tr>
+        <tr><td>Đã tích lũy</td><td align="right"><b>{format_vnd(current_saved)} / {format_vnd(target)}</b></td></tr>
+        <tr><td>Đề xuất mỗi tháng</td><td align="right"><b>{format_vnd(monthly_needed)}</b></td></tr>
+        <tr><td>Thời gian ước tính</td><td align="right"><b>{int(est_months)} tháng</b></td></tr>
+      </table>
+    """
+    return _email_shell("🎯 Kế hoạch mục tiêu", username, content, accent="#7C3AED", cta_text="Xem mục tiêu", cta_url=f"{app_url}/goals" if app_url else None)

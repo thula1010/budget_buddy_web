@@ -4,11 +4,14 @@ import json
 import math
 import os
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import click
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import LoginManager, UserMixin, current_user, login_required, login_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import inspect, text
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -19,9 +22,19 @@ except ImportError:  # AI features remain optional until dependencies are instal
     OpenAI = None
 
 try:
-    from services.notification import send_goal_plan_email
+    from config.mailer import email_delivery_configured
+    from services.notification import (
+        send_budget_alert_email,
+        send_goal_plan_email,
+        send_verification_email,
+        send_weekly_summary_email,
+    )
 except Exception:
+    email_delivery_configured = lambda: False
+    send_budget_alert_email = None
     send_goal_plan_email = None
+    send_verification_email = None
+    send_weekly_summary_email = None
 
 
 load_dotenv()
@@ -32,6 +45,12 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
+app.config["EMAIL_VERIFICATION_REQUIRED"] = os.environ.get(
+    "EMAIL_VERIFICATION_REQUIRED", "1"
+).lower() not in {"0", "false", "no"}
+app.config["EMAIL_VERIFICATION_MAX_AGE"] = int(
+    os.environ.get("EMAIL_VERIFICATION_MAX_AGE", str(24 * 60 * 60))
+)
 os.makedirs(app.instance_path, exist_ok=True)
 
 db = SQLAlchemy(app)
@@ -44,6 +63,12 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    email_verified = db.Column(db.Boolean, nullable=False, default=False)
+    email_verified_at = db.Column(db.DateTime, nullable=True)
+    verification_sent_at = db.Column(db.DateTime, nullable=True)
+    weekly_email_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    budget_alerts_enabled = db.Column(db.Boolean, nullable=False, default=True)
+    last_weekly_email_at = db.Column(db.DateTime, nullable=True)
 
 
 class Account(db.Model):
@@ -125,6 +150,28 @@ def seed_categories():
         if not Category.query.filter_by(name=name).first():
             db.session.add(Category(name=name, kind=kind, icon=icon, color=color, bg=bg))
     db.session.commit()
+
+
+def upgrade_user_schema():
+    """Add notification fields without invalidating accounts created before this release."""
+    schema = inspect(db.engine)
+    if "user" not in schema.get_table_names():
+        return
+    existing = {column["name"] for column in schema.get_columns("user")}
+    additions = {
+        "email_verified": "BOOLEAN NOT NULL DEFAULT TRUE",
+        "email_verified_at": "TIMESTAMP NULL",
+        "verification_sent_at": "TIMESTAMP NULL",
+        "weekly_email_enabled": "BOOLEAN NOT NULL DEFAULT TRUE",
+        "budget_alerts_enabled": "BOOLEAN NOT NULL DEFAULT TRUE",
+        "last_weekly_email_at": "TIMESTAMP NULL",
+    }
+    with db.engine.begin() as connection:
+        for column, definition in additions.items():
+            if column not in existing:
+                connection.exec_driver_sql(
+                    f'ALTER TABLE "user" ADD COLUMN "{column}" {definition}'
+                )
 
 
 def prepare_legacy_tables():
@@ -248,6 +295,35 @@ def ensure_user_data(user):
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
+
+
+def utc_now_naive():
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+def verification_serializer():
+    return URLSafeTimedSerializer(app.config["SECRET_KEY"])
+
+
+def create_verification_token(user):
+    return verification_serializer().dumps(
+        {"user_id": user.id, "email": user.email}, salt="email-verification"
+    )
+
+
+def verification_link(user):
+    base_url = os.environ.get("APP_BASE_URL") or request.url_root.rstrip("/")
+    return f'{base_url.rstrip("/")}{url_for("verify_email", token=create_verification_token(user))}'
+
+
+def deliver_verification_email(user):
+    if not send_verification_email or not email_delivery_configured():
+        return False
+    delivered = send_verification_email(user.email, user.username, verification_link(user))
+    if delivered:
+        user.verification_sent_at = utc_now_naive()
+        db.session.commit()
+    return delivered
 
 
 def valid_period(value):
@@ -453,6 +529,9 @@ def api_login():
     if not user or not check_password_hash(user.password_hash, request.form.get("password", "")):
         flash("Tên đăng nhập hoặc mật khẩu không chính xác!", "error")
         return redirect(url_for("login"))
+    if app.config["EMAIL_VERIFICATION_REQUIRED"] and not user.email_verified:
+        flash("Vui lòng xác minh email trước khi đăng nhập.", "error")
+        return redirect(url_for("verify_email_pending", email=user.email))
     login_user(user)
     ensure_user_data(user)
     return redirect(url_for("overview"))
@@ -466,17 +545,92 @@ def api_signup():
     if not username or not email or not password:
         flash("Vui lòng nhập đầy đủ thông tin!", "error")
         return redirect(url_for("login"))
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        flash("Địa chỉ email không hợp lệ!", "error")
+        return redirect(url_for("login"))
+    if len(password) < 8:
+        flash("Mật khẩu phải có ít nhất 8 ký tự!", "error")
+        return redirect(url_for("login"))
     if password != request.form.get("confirm_password", ""):
         flash("Mật khẩu nhập lại không khớp!", "error")
         return redirect(url_for("login"))
     if User.query.filter((User.username == username) | (User.email == email)).first():
         flash("Tên đăng nhập hoặc email đã tồn tại!", "error")
         return redirect(url_for("login"))
-    user = User(username=username, email=email, password_hash=generate_password_hash(password))
+    verification_required = app.config["EMAIL_VERIFICATION_REQUIRED"]
+    user = User(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash(password),
+        email_verified=not verification_required,
+        email_verified_at=utc_now_naive() if not verification_required else None,
+    )
     db.session.add(user)
     db.session.commit()
     ensure_user_data(user)
+    if verification_required:
+        if deliver_verification_email(user):
+            flash("Đã gửi email xác minh. Vui lòng kiểm tra hộp thư của bạn.", "success")
+        else:
+            flash(
+                "Tài khoản đã được tạo nhưng chưa gửi được email xác minh. Hãy thử gửi lại.",
+                "error",
+            )
+        return redirect(url_for("verify_email_pending", email=user.email))
     login_user(user)
+    return redirect(url_for("overview"))
+
+
+@app.route("/verify-email-pending")
+def verify_email_pending():
+    if current_user.is_authenticated:
+        return redirect(url_for("overview"))
+    return render_template("verify-email-pending.html", email=request.args.get("email", ""))
+
+
+@app.route("/api/resend-verification", methods=["POST"])
+def resend_verification():
+    email = request.form.get("email", "").strip().lower()
+    user = User.query.filter_by(email=email).first()
+    generic_message = "Nếu email tồn tại và chưa được xác minh, liên kết mới sẽ được gửi."
+    if not user or user.email_verified:
+        flash(generic_message, "success")
+        return redirect(url_for("verify_email_pending", email=email))
+    if user.verification_sent_at and utc_now_naive() - user.verification_sent_at < timedelta(seconds=60):
+        flash("Vui lòng đợi 60 giây trước khi gửi lại.", "error")
+        return redirect(url_for("verify_email_pending", email=email))
+    if deliver_verification_email(user):
+        flash("Đã gửi lại email xác minh.", "success")
+    else:
+        flash("Chưa gửi được email. Vui lòng thử lại sau.", "error")
+    return redirect(url_for("verify_email_pending", email=email))
+
+
+@app.route("/verify-email/<token>")
+def verify_email(token):
+    try:
+        payload = verification_serializer().loads(
+            token,
+            salt="email-verification",
+            max_age=app.config["EMAIL_VERIFICATION_MAX_AGE"],
+        )
+    except SignatureExpired:
+        flash("Liên kết xác minh đã hết hạn. Vui lòng yêu cầu liên kết mới.", "error")
+        return redirect(url_for("verify_email_pending"))
+    except BadSignature:
+        flash("Liên kết xác minh không hợp lệ.", "error")
+        return redirect(url_for("login"))
+    user = db.session.get(User, payload.get("user_id"))
+    if not user or user.email != payload.get("email"):
+        flash("Liên kết xác minh không hợp lệ.", "error")
+        return redirect(url_for("login"))
+    if not user.email_verified:
+        user.email_verified = True
+        user.email_verified_at = utc_now_naive()
+        db.session.commit()
+    ensure_user_data(user)
+    login_user(user)
+    flash("Email đã được xác minh thành công.", "success")
     return redirect(url_for("overview"))
 
 
@@ -515,6 +669,54 @@ def goals():
 @login_required
 def ai_coach():
     return render_template("ai-coach.html", user=current_user)
+
+
+@app.route("/settings")
+@login_required
+def settings():
+    return render_template("settings.html", user=current_user)
+
+
+@app.route("/api/account/preferences", methods=["PATCH"])
+@login_required
+def update_account_preferences():
+    data = request.get_json(silent=True) or {}
+    for field in ("weekly_email_enabled", "budget_alerts_enabled"):
+        if field in data:
+            if not isinstance(data[field], bool):
+                return json_error("Giá trị tùy chọn không hợp lệ.")
+            setattr(current_user, field, data[field])
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "weekly_email_enabled": current_user.weekly_email_enabled,
+        "budget_alerts_enabled": current_user.budget_alerts_enabled,
+    })
+
+
+@app.route("/api/account", methods=["DELETE"])
+@login_required
+def delete_account():
+    data = request.get_json(silent=True) or {}
+    if data.get("confirmation") != "DELETE":
+        return json_error('Vui lòng nhập chính xác "DELETE" để xác nhận.')
+    if not check_password_hash(current_user.password_hash, str(data.get("password", ""))):
+        return json_error("Mật khẩu không chính xác.")
+
+    user_id = current_user.id
+    logout_user()
+    try:
+        Transaction.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+        Budget.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+        Goal.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+        Account.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+        User.query.filter_by(id=user_id).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Account deletion failed")
+        return json_error("Không thể xóa tài khoản lúc này. Vui lòng thử lại.", 500)
+    return jsonify({"success": True, "redirect": url_for("login")})
 
 
 @app.route("/api/state")
@@ -588,6 +790,24 @@ def add_transaction():
     if account_balance(account) + signed_amount < 0:
         return json_error(f"Số dư {account.name} không đủ.")
 
+    budget_row = None
+    previous_spent = 0
+    if tx_type == "expense":
+        budget_row = Budget.query.filter_by(
+            user_id=current_user.id, category_id=category.id
+        ).first()
+        if budget_row:
+            previous_spent = -float(
+                db.session.query(db.func.coalesce(db.func.sum(Transaction.amount), 0))
+                .filter(
+                    Transaction.user_id == current_user.id,
+                    Transaction.category_id == category.id,
+                    Transaction.date.like(f"{tx_date[:7]}%"),
+                    Transaction.amount < 0,
+                )
+                .scalar()
+            )
+
     tx = Transaction(
         user_id=current_user.id, account_id=account.id, category_id=category.id,
         merchant=merchant, amount=signed_amount, date=tx_date,
@@ -604,6 +824,27 @@ def add_transaction():
             "category": budget["category"], "spent": budget["spent"],
             "limit": budget["limit_vnd"], "over": budget["over"],
         }
+        crossed_limit = budget_row and previous_spent <= budget_row.limit_vnd
+        if (
+            crossed_limit
+            and current_user.email_verified
+            and current_user.budget_alerts_enabled
+            and send_budget_alert_email
+            and email_delivery_configured()
+        ):
+            try:
+                send_budget_alert_email(
+                    current_user.email,
+                    current_user.username,
+                    category.name,
+                    budget["spent"],
+                    budget["limit_vnd"],
+                    idempotency_key=(
+                        f"budget-{current_user.id}-{category.id}-{tx_date[:7]}-{tx.id}"
+                    ),
+                )
+            except Exception:
+                app.logger.exception("Budget alert email failed")
     return jsonify({"success": True, "id": tx.id, "state": state, "breachAlert": breach}), 201
 
 
@@ -765,8 +1006,8 @@ def deposit_goal(goal_id):
     if (
         send_goal_plan_email
         and current_user.email
-        and os.environ.get("EMAIL_USER")
-        and os.environ.get("EMAIL_PASS")
+        and current_user.email_verified
+        and email_delivery_configured()
     ):
         try:
             remaining = max(0, goal.target - goal.current_saved)
@@ -781,7 +1022,101 @@ def deposit_goal(goal_id):
     return jsonify(build_state(current_user))
 
 
+def send_due_weekly_reports(reference_date=None, force=False):
+    """Send each verified user one report for the most recently completed week."""
+    if reference_date is None:
+        try:
+            timezone = ZoneInfo(os.environ.get("APP_TIMEZONE", "Asia/Ho_Chi_Minh"))
+        except ZoneInfoNotFoundError:
+            app.logger.warning("Unknown APP_TIMEZONE; falling back to UTC")
+            timezone = UTC
+        reference_date = datetime.now(timezone).date()
+    current_monday = reference_date - timedelta(days=reference_date.weekday())
+    week_end = current_monday - timedelta(days=1)
+    week_start = week_end - timedelta(days=6)
+    previous_end = week_start - timedelta(days=1)
+    previous_start = previous_end - timedelta(days=6)
+    result = {
+        "sent": 0,
+        "failed": 0,
+        "skipped": 0,
+        "week_start": week_start.isoformat(),
+        "week_end": week_end.isoformat(),
+    }
+
+    users = User.query.filter_by(email_verified=True, weekly_email_enabled=True).all()
+    for user in users:
+        if (
+            not force
+            and user.last_weekly_email_at
+            and user.last_weekly_email_at.date() >= current_monday
+        ):
+            result["skipped"] += 1
+            continue
+        weekly_transactions = (
+            Transaction.query.filter(
+                Transaction.user_id == user.id,
+                Transaction.date >= week_start.isoformat(),
+                Transaction.date <= week_end.isoformat(),
+            )
+            .order_by(Transaction.date.desc(), Transaction.id.desc())
+            .all()
+        )
+        previous_transactions = Transaction.query.filter(
+            Transaction.user_id == user.id,
+            Transaction.date >= previous_start.isoformat(),
+            Transaction.date <= previous_end.isoformat(),
+        ).all()
+        income = sum(tx.amount for tx in weekly_transactions if tx.amount > 0)
+        expense = -sum(tx.amount for tx in weekly_transactions if tx.amount < 0)
+        previous_expense = -sum(tx.amount for tx in previous_transactions if tx.amount < 0)
+        categories = {category.id: category.name for category in Category.query.all()}
+        by_category = {}
+        for tx in weekly_transactions:
+            if tx.amount < 0:
+                name = categories.get(tx.category_id, "Khác")
+                by_category[name] = by_category.get(name, 0) - tx.amount
+        recent = [
+            {"date": tx.date, "merchant": tx.merchant, "amount": float(tx.amount)}
+            for tx in weekly_transactions
+        ]
+        delivered = False
+        if send_weekly_summary_email and email_delivery_configured():
+            try:
+                delivered = send_weekly_summary_email(
+                    user.email,
+                    user.username,
+                    week_start.isoformat(),
+                    week_end.isoformat(),
+                    income,
+                    expense,
+                    previous_expense,
+                    by_category,
+                    recent,
+                    idempotency_key=f"weekly-{user.id}-{week_start.isoformat()}",
+                )
+            except Exception:
+                app.logger.exception("Weekly email failed for user %s", user.id)
+        if delivered:
+            user.last_weekly_email_at = datetime(
+                current_monday.year, current_monday.month, current_monday.day
+            )
+            db.session.commit()
+            result["sent"] += 1
+        else:
+            result["failed"] += 1
+    return result
+
+
+@app.cli.command("send-weekly-reports")
+@click.option("--force", is_flag=True, help="Send again even if this week's report was sent.")
+def send_weekly_reports_command(force):
+    result = send_due_weekly_reports(force=force)
+    click.echo(json.dumps(result, ensure_ascii=False))
+
+
 with app.app_context():
+    upgrade_user_schema()
     legacy_tables = prepare_legacy_tables()
     db.create_all()
     seed_categories()
