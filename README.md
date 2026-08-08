@@ -52,19 +52,44 @@ Không có API key, ứng dụng vẫn hoạt động đầy đủ với bộ g�
 
 Ảnh OCR hỗ trợ JPG, PNG và WebP, tối đa 8 MB. Trên điện thoại, nút chọn ảnh có thể mở camera sau.
 
-## Email xác minh và thông báo
+## Email xác minh và thông báo bằng Gmail API
 
-Khi triển khai trên Render, dùng Resend qua HTTPS. Khai báo các biến sau trong **Environment**:
+Gmail API gửi qua HTTPS nên hoạt động trên Render Free. Ứng dụng chỉ yêu cầu quyền `gmail.send` và tự đổi Refresh Token lấy Access Token ngắn hạn trước mỗi lần gửi.
+
+Thiết lập một lần:
+
+1. Tạo project trong [Google Cloud Console](https://console.cloud.google.com/) và bật **Gmail API**.
+2. Trong **Google Auth Platform**, cấu hình Branding/Audience và thêm Gmail gửi thư làm Test user.
+3. Tạo OAuth Client có loại **Desktop app**, rồi sao chép Client ID và Client Secret.
+4. Trên máy tính, đặt hai giá trị vào file `.env`:
+
+```dotenv
+GMAIL_CLIENT_ID=xxxx.apps.googleusercontent.com
+GMAIL_CLIENT_SECRET=xxxx
+```
+
+5. Cài dependency và chạy công cụ cấp quyền:
+
+```powershell
+pip install -r requirements.txt
+python gmail_oauth_setup.py
+```
+
+6. Đăng nhập đúng Gmail gửi thư, chấp nhận quyền gửi mail, rồi sao chép dòng `GMAIL_REFRESH_TOKEN=...` được in trong PowerShell.
+7. Trong Render **Environment**, khai báo:
 
 ```dotenv
 APP_BASE_URL=https://ten-ung-dung.onrender.com
 APP_TIMEZONE=Asia/Ho_Chi_Minh
 EMAIL_VERIFICATION_REQUIRED=1
-RESEND_API_KEY=re_xxxxxxxxx
-EMAIL_FROM=Budget Buddy <notifications@ten-mien-da-xac-minh.com>
+EMAIL_USER=your-gmail@gmail.com
+EMAIL_FROM="Budget Buddy <your-gmail@gmail.com>"
+GMAIL_CLIENT_ID=xxxx.apps.googleusercontent.com
+GMAIL_CLIENT_SECRET=xxxx
+GMAIL_REFRESH_TOKEN=xxxx
 ```
 
-`EMAIL_FROM` phải thuộc tên miền đã xác minh trên Resend. Khi chạy ở máy chủ khác có hỗ trợ SMTP, có thể thay bằng `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` và `SMTP_USE_TLS` như trong `.env.example`.
+Không đưa Client Secret hoặc Refresh Token lên GitHub. Gmail API được ưu tiên khi có đủ bốn biến `GMAIL_*`/`EMAIL_USER`; Resend và SMTP chỉ còn là fallback tương thích. Nếu OAuth Audience đang ở trạng thái **Testing**, quyền và Refresh Token của test user sẽ hết hạn sau 7 ngày; chuyển Publishing status sang **Production** để tránh giới hạn này cho cấu hình lâu dài.
 
 Để gửi báo cáo tuần trên Render, tạo **Cron Job** dùng cùng repository và các biến môi trường với Web Service:
 
@@ -105,5 +130,8 @@ Bộ kiểm thử bao phủ:
 | `APP_BASE_URL` | `http://127.0.0.1:5000` | Tên miền đầy đủ dùng trong liên kết email |
 | `APP_TIMEZONE` | `Asia/Ho_Chi_Minh` | Múi giờ xác định tuần báo cáo |
 | `EMAIL_VERIFICATION_REQUIRED` | `1` | Bắt buộc xác minh email khi đăng ký |
-| `RESEND_API_KEY` | trống | API key gửi email qua HTTPS |
-| `EMAIL_FROM` | trống | Tên và địa chỉ người gửi đã xác minh |
+| `EMAIL_USER` | trống | Tài khoản Gmail gửi thông báo |
+| `EMAIL_FROM` | trống | Tên hiển thị và địa chỉ Gmail gửi |
+| `GMAIL_CLIENT_ID` | trống | OAuth Client ID của Google Cloud |
+| `GMAIL_CLIENT_SECRET` | trống | OAuth Client Secret, chỉ đặt trong Environment |
+| `GMAIL_REFRESH_TOKEN` | trống | Token cấp quyền gửi Gmail khi người dùng offline |

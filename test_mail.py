@@ -1,4 +1,4 @@
-"""Gửi thử email cảnh báo bằng cấu hình Resend/SMTP hiện tại."""
+"""Gửi thử email cảnh báo bằng cấu hình Gmail API/Resend/SMTP hiện tại."""
 
 import os
 
@@ -10,7 +10,7 @@ receiver = os.environ.get("TEST_EMAIL_RECEIVER")
 if not receiver:
     raise SystemExit("Hãy đặt TEST_EMAIL_RECEIVER=dia-chi-email-cua-ban trước khi chạy.")
 if not email_delivery_configured():
-    raise SystemExit("Chưa cấu hình Resend hoặc SMTP trong file .env.")
+    raise SystemExit("Chưa cấu hình Gmail API, Resend hoặc SMTP trong file .env.")
 
 print("Đang gửi email cảnh báo ngân sách thử nghiệm...")
 success = send_budget_alert_email(
