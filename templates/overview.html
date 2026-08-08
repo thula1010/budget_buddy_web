@@ -119,6 +119,11 @@ body{
 .acc-row small{color:var(--muted);font-size:12px}
 .acc-row .amt{margin-left:auto;text-align:right;font-weight:800;font-size:14.5px}
 .acc-row .amt small{display:block;font-weight:600;color:var(--income)}
+.edit-balance-btn{
+  border:1px solid var(--border);background:#fff;color:var(--accent);border-radius:9px;
+  padding:7px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:.16s;
+}
+.edit-balance-btn:hover{border-color:var(--accent);background:#F0FDFA}
 /* ---------- Table ---------- */
 table{width:100%;border-collapse:collapse}
 th{
@@ -194,7 +199,7 @@ canvas{max-width:100%}
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span> &middot; Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
     </div>
     <nav class="nav" id="nav">
       <button data-tab="overview" class="active">&#127968; <span class="lbl">Overview</span></button>
@@ -245,7 +250,7 @@ canvas{max-width:100%}
     <div class="field">
       <label>Hóa đơn đính kèm (Receipt)</label>
       <div class="upload-zone" id="uploadZone">
-        <input type="file" id="fReceipt" accept="image/*">
+        <input type="file" id="fReceipt" accept="image/jpeg,image/png,image/webp" capture="environment">
         <span class="upload-icon">&#129302;</span>
         <div class="upload-text">Kéo thả hoặc click để tải hóa đơn</div>
         <div class="upload-hint">Tự động nhận diện thông tin bằng AI (JPG, PNG)</div>
@@ -277,6 +282,28 @@ canvas{max-width:100%}
   </div>
 </div>
 
+<div class="overlay" id="balanceOverlay">
+  <div class="modal" style="width:420px">
+    <h3>Chỉnh số dư tài khoản</h3>
+    <div class="field">
+      <label>Tài khoản</label>
+      <div id="balanceAccountName" style="font-weight:800"></div>
+    </div>
+    <div class="field">
+      <label>Số dư hiện tại (₫)</label>
+      <input id="balanceAmount" type="number" min="0" step="1000" inputmode="numeric">
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin:-4px 0 14px">
+      Lịch sử giao dịch được giữ nguyên. Số dư mới sẽ đồng bộ trên toàn ứng dụng.
+    </div>
+    <div class="err" id="balanceErr"></div>
+    <div class="row2">
+      <button class="btn ghost" id="cancelBalanceBtn">Hủy</button>
+      <button class="btn" id="saveBalanceBtn">Lưu số dư</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const SEED = {"accounts": [{"balance": 520000, "icon": "💵", "id": 1, "name": "Personal Wallet", "type": "cash"}, {"balance": 1450000, "icon": "🏦", "id": 2, "name": "MB Bank", "type": "bank"}, {"balance": 480000, "icon": "🏦", "id": 3, "name": "Techcombank", "type": "bank"}, {"balance": 260000, "icon": "📱", "id": 4, "name": "MoMo", "type": "ewallet"}, {"balance": 90000, "icon": "📱", "id": 5, "name": "ShopeePay", "type": "ewallet"}], "budgets": [{"bg": "#FEF3C7", "category": "Food & Drinks", "category_id": 1, "color": "#B45309", "icon": "🍜", "id": 1, "limit_vnd": 600000, "over": 0, "pct": 80, "period": "2025-07", "spent": 480000}, {"bg": "#EDE9FE", "category": "Transport", "category_id": 2, "color": "#6D28D9", "icon": "🛵", "id": 2, "limit_vnd": 150000, "over": 0, "pct": 87, "period": "2025-07", "spent": 130000}, {"bg": "#FCE7F3", "category": "Entertainment", "category_id": 4, "color": "#BE185D", "icon": "🎬", "id": 3, "limit_vnd": 80000, "over": 85000, "pct": 206, "period": "2025-07", "spent": 165000}, {"bg": "#DBEAFE", "category": "Education", "category_id": 3, "color": "#1D4ED8", "icon": "📚", "id": 4, "limit_vnd": 300000, "over": 0, "pct": 86, "period": "2025-07", "spent": 257000}, {"bg": "#CCFBF1", "category": "Shopping", "category_id": 5, "color": "#0F766E", "icon": "🛍", "id": 5, "limit_vnd": 100000, "over": 59000, "pct": 159, "period": "2025-07", "spent": 159000}], "categories": [{"bg": "#FEF3C7", "color": "#B45309", "icon": "🍜", "id": 1, "kind": "expense", "name": "Food & Drinks"}, {"bg": "#EDE9FE", "color": "#6D28D9", "icon": "🛵", "id": 2, "kind": "expense", "name": "Transport"}, {"bg": "#DBEAFE", "color": "#1D4ED8", "icon": "📚", "id": 3, "kind": "expense", "name": "Education"}, {"bg": "#FCE7F3", "color": "#BE185D", "icon": "🎬", "id": 4, "kind": "expense", "name": "Entertainment"}, {"bg": "#CCFBF1", "color": "#0F766E", "icon": "🛍", "id": 5, "kind": "expense", "name": "Shopping"}, {"bg": "#D1FAE5", "color": "#047857", "icon": "💼", "id": 6, "kind": "income", "name": "Income"}], "charts": {"by_category": {"Education": 257000, "Entertainment": 165000, "Food & Drinks": 480000, "Shopping": 159000, "Transport": 130000}, "weekly": [344000, 225000, 295000, 327000]}, "goals": [{"accent": "#0D9488", "deadline": "Dec 2025", "icon": "💻", "id": 1, "name": "MacBook Air M3", "saved": 18200000, "target": 28000000}, {"accent": "#A78BFA", "deadline": "Mar 2026", "icon": "🗾", "id": 2, "name": "Japan Trip", "saved": 4500000, "target": 15000000}, {"accent": "#34D399", "deadline": "Done!", "icon": "🛡", "id": 3, "name": "Emergency Fund", "saved": 10000000, "target": 10000000}], "kpi": {"balance": 2800000, "expense": 1191000, "income": 4000000, "savings_rate": 70, "target_rate": 70}, "notifications": [{"ago": "3h ago", "id": 1, "kind": "ai", "text": "\"Highlands Coffee\" auto-tagged -> Food & Drinks"}, {"ago": "1d ago", "id": 2, "kind": "done", "text": "Emergency Fund goal completed! Congratulations"}, {"ago": "2d ago", "id": 3, "kind": "warn", "text": "Transport budget at 87% - approaching limit"}], "period": "2025-07", "transactions": [{"acc_icon": "📱", "account": "MoMo", "account_id": 4, "ai_tagged": 1, "amount": -45000, "bg": "#FEF3C7", "cat_icon": "🍜", "category": "Food & Drinks", "category_id": 1, "color": "#B45309", "created_at": "2026-07-29 09:26:45", "date": "2025-07-26", "id": 1, "merchant": "Highlands Coffee"}, {"acc_icon": "🏦", "account": "MB Bank", "account_id": 2, "ai_tagged": 0, "amount": 3500000, "bg": "#D1FAE5", "cat_icon": "💼", "category": "Income", "category_id": 6, "color": "#047857", "created_at": "2026-07-29 09:26:45", "date": "2025-07-25", "id": 2, "merchant": "Scholarship Disbursement"}, {"acc_icon": "📱", "account": "MoMo", "account_id": 4, "ai_tagged": 1, "amount": -28000, "bg": "#EDE9FE", "cat_icon": "🛵", "category": "Transport", "category_id": 2, "color": "#6D28D9", "created_at": "2026-07-29 09:26:45", "date": "2025-07-24", "id": 3, "merchant": "Grab Bike"}, {"acc_icon": "📱", "account": "ShopeePay", "account_id": 5, "ai_tagged": 0, "amount": -159000, "bg": "#CCFBF1", "cat_icon": "🛍", "category": "Shopping", "category_id": 5, "color": "#0F766E", "created_at": "2026-07-29 09:26:45", "date": "2025-07-23", "id": 4, "merchant": "Shopee - Sach IELTS"}, {"acc_icon": "💵", "account": "Personal Wallet", "account_id": 1, "ai_tagged": 0, "amount": -95000, "bg": "#FCE7F3", "cat_icon": "🎬", "category": "Entertainment", "category_id": 4, "color": "#BE185D", "created_at": "2026-07-29 09:26:45", "date": "2025-07-22", "id": 5, "merchant": "CGV Cinema"}, {"acc_icon": "🏦", "account": "Techcombank", "account_id": 3, "ai_tagged": 0, "amount": 500000, "bg": "#D1FAE5", "cat_icon": "💼", "category": "Income", "category_id": 6, "color": "#047857", "created_at": "2026-07-29 09:26:45", "date": "2025-07-21", "id": 6, "merchant": "Tutoring Income"}, {"acc_icon": "💵", "account": "Personal Wallet", "account_id": 1, "ai_tagged": 1, "amount": -40000, "bg": "#FEF3C7", "cat_icon": "🍜", "category": "Food & Drinks", "category_id": 1, "color": "#B45309", "created_at": "2026-07-29 09:26:45", "date": "2025-07-20", "id": 7, "merchant": "Bun bo Hue - Co Ba"}, {"acc_icon": "🏦", "account": "MB Bank", "account_id": 2, "ai_tagged": 0, "amount": -220000, "bg": "#DBEAFE", "cat_icon": "📚", "category": "Education", "category_id": 3, "color": "#1D4ED8", "created_at": "2026-07-29 09:26:45", "date": "2025-07-18", "id": 8, "merchant": "Coursera - Data Course"}, {"acc_icon": "📱", "account": "MoMo", "account_id": 4, "ai_tagged": 1, "amount": -35000, "bg": "#FEF3C7", "cat_icon": "🍜", "category": "Food & Drinks", "category_id": 1, "color": "#B45309", "created_at": "2026-07-29 09:26:45", "date": "2025-07-15", "id": 9, "merchant": "Circle K"}, {"acc_icon": "💵", "account": "Personal Wallet", "account_id": 1, "ai_tagged": 0, "amount": -102000, "bg": "#EDE9FE", "cat_icon": "🛵", "category": "Transport", "category_id": 2, "color": "#6D28D9", "created_at": "2026-07-29 09:26:45", "date": "2025-07-12", "id": 10, "merchant": "Xe buyt thang 7"}, {"acc_icon": "💵", "account": "Personal Wallet", "account_id": 1, "ai_tagged": 1, "amount": -55000, "bg": "#FEF3C7", "cat_icon": "🍜", "category": "Food & Drinks", "category_id": 1, "color": "#B45309", "created_at": "2026-07-29 09:26:45", "date": "2025-07-10", "id": 11, "merchant": "Com tam Sai Gon"}, {"acc_icon": "📱", "account": "ShopeePay", "account_id": 5, "ai_tagged": 1, "amount": -68000, "bg": "#FEF3C7", "cat_icon": "🍜", "category": "Food & Drinks", "category_id": 1, "color": "#B45309", "created_at": "2026-07-29 09:26:45", "date": "2025-07-08", "id": 12, "merchant": "The Coffee House"}, {"acc_icon": "📱", "account": "MoMo", "account_id": 4, "ai_tagged": 0, "amount": -70000, "bg": "#FCE7F3", "cat_icon": "🎬", "category": "Entertainment", "category_id": 4, "color": "#BE185D", "created_at": "2026-07-29 09:26:45", "date": "2025-07-05", "id": 13, "merchant": "Netflix"}, {"acc_icon": "💵", "account": "Personal Wallet", "account_id": 1, "ai_tagged": 0, "amount": -37000, "bg": "#DBEAFE", "cat_icon": "📚", "category": "Education", "category_id": 3, "color": "#1D4ED8", "created_at": "2026-07-29 09:26:45", "date": "2025-07-03", "id": 14, "merchant": "Photocopy tai lieu"}, {"acc_icon": "🏦", "account": "MB Bank", "account_id": 2, "ai_tagged": 1, "amount": -237000, "bg": "#FEF3C7", "cat_icon": "🍜", "category": "Food & Drinks", "category_id": 1, "color": "#B45309", "created_at": "2026-07-29 09:26:45", "date": "2025-07-02", "id": 15, "merchant": "Bach Hoa Xanh"}], 
 "user": {"initials": "{{ user.username[0].upper() }}", "name": "{{ user.username }}", "plan": "Student"}};
@@ -293,6 +320,7 @@ const DB = {
 };
 let nextId = Math.max.apply(null, DB.transactions.map(t => t.id)) + 1;
 let currentReceiptBase64 = null;
+let editingAccountId = null;
 
 function buildState(){
   const P = DB.period;
@@ -386,6 +414,9 @@ window.fetch = async function(url, opts){
   }
   return reply({error:'404'}, false);
 };
+// Use Flask/SQLite as the single source of truth. The mock above is kept only as
+// legacy demo data and must never intercept real application requests.
+window.fetch = nativeFetch;
 
 const $ = s => document.querySelector(s);
 let S = null, txnType = 'expense', charts = [];
@@ -449,6 +480,9 @@ function render(){
   if(!S) return;
   charts.forEach(c => c.destroy()); charts = [];
   $('#pageTitle').textContent = 'Overview';
+  const [periodYear, periodMonth] = S.period.split('-').map(Number);
+  $('#pageSub').textContent = new Date(periodYear, periodMonth - 1, 1)
+    .toLocaleDateString('vi-VN', {month:'long', year:'numeric'}) + ' · Tất cả tài khoản đã đồng bộ';
   $('#uname').textContent = S.user.name;
   $('#uplan').textContent = S.user.plan;
   $('#avatar').textContent = S.user.initials;
@@ -501,6 +535,7 @@ function vOverview(){
           <div class="tile" style="background:#F1F5F9">${a.icon}</div>
           <div><b>${esc(a.name)}</b><small>${t}</small></div>
           <div class="amt">${full(a.balance)}<small>&#9679; Active</small></div>
+          <button type="button" class="edit-balance-btn" onclick="openBalanceModal(${a.id})">Chỉnh sửa</button>
         </div>`).join('') + '</div>';
   }).join('');
   return alert + `
@@ -609,11 +644,30 @@ function setupReceiptUpload(){
       previewBox.style.display = 'flex';
       
       // Auto-fill giả lập bằng AI đồng bộ với các trang khác
-      if(!$('#fMerchant').value) $('#fMerchant').value = "Highlands Coffee";
-      if(!$('#fAmount').value) $('#fAmount').value = 45000;
-      updatePreview();
+      scanReceipt(file);
     };
     reader.readAsDataURL(file);
+  }
+
+  async function scanReceipt(file){
+    $('#err').textContent = 'Đang đọc hóa đơn bằng AI...';
+    const formData = new FormData();
+    formData.append('receipt', file);
+    try {
+      const response = await nativeFetch('/api/scan-receipt', {method:'POST', body:formData});
+      const data = await response.json();
+      if(!response.ok) throw new Error(data.error || 'Không thể đọc hóa đơn');
+      $('#fMerchant').value = data.merchant || '';
+      $('#fAmount').value = data.amount || '';
+      $('#fDate').value = data.date || $('#fDate').value;
+      setType('expense');
+      const category = S.categories.find(c => c.name === data.category);
+      if(category) $('#fCat').value = category.id;
+      $('#err').textContent = 'Đã điền thông tin từ hóa đơn. Vui lòng kiểm tra trước khi lưu.';
+      updatePreview();
+    } catch(error) {
+      $('#err').textContent = error.message;
+    }
   }
 
   function clearReceipt(){
@@ -635,6 +689,21 @@ function openModal(){
 }
 
 function closeModal(){ $('#overlay').classList.remove('open'); }
+function openBalanceModal(accountId){
+  const account = S.accounts.find(a => a.id === accountId);
+  if(!account) return;
+  editingAccountId = accountId;
+  $('#balanceAccountName').textContent = `${account.icon} ${account.name}`;
+  $('#balanceAmount').value = Math.round(account.balance);
+  $('#balanceErr').textContent = '';
+  $('#balanceOverlay').classList.add('open');
+  $('#balanceAmount').focus();
+  $('#balanceAmount').select();
+}
+function closeBalanceModal(){
+  $('#balanceOverlay').classList.remove('open');
+  editingAccountId = null;
+}
 function setType(t){
   txnType = t;
   $('#tExp').classList.toggle('on', t === 'expense');
@@ -649,6 +718,36 @@ $('#tInc').onclick = () => setType('income');
 $('#fAcc').onchange = updatePreview;
 $('#fAmount').oninput = updatePreview;
 $('#overlay').onclick = e => { if(e.target === $('#overlay')) closeModal(); };
+$('#cancelBalanceBtn').onclick = closeBalanceModal;
+$('#balanceOverlay').onclick = e => { if(e.target === $('#balanceOverlay')) closeBalanceModal(); };
+$('#balanceAmount').onkeydown = e => { if(e.key === 'Enter') $('#saveBalanceBtn').click(); };
+
+$('#saveBalanceBtn').onclick = async () => {
+  const balance = Number($('#balanceAmount').value);
+  if(!Number.isFinite(balance) || balance < 0){
+    $('#balanceErr').textContent = 'Vui lòng nhập số dư hợp lệ, từ 0 ₫ trở lên.';
+    return;
+  }
+  const button = $('#saveBalanceBtn');
+  button.disabled = true;
+  $('#balanceErr').textContent = '';
+  try {
+    const response = await fetch(`/api/accounts/${editingAccountId}/balance`, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({balance, period:S.period})
+    });
+    const data = await response.json();
+    if(!response.ok) throw new Error(data.error || 'Không thể cập nhật số dư.');
+    S = data.state;
+    closeBalanceModal();
+    render();
+  } catch(error) {
+    $('#balanceErr').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+};
 
 $('#saveBtn').onclick = async () => {
   $('#err').textContent = '';
@@ -670,8 +769,7 @@ $('#saveBtn').onclick = async () => {
     category_id: catId,
     account_id: accId,
     category: catObj ? catObj.name : 'Other',
-    account: accObj ? accObj.name : 'Personal Wallet',
-    image: currentReceiptBase64
+    account: accObj ? accObj.name : 'Personal Wallet'
   };
 
   try {

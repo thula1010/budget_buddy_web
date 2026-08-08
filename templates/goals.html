@@ -161,7 +161,7 @@ body{
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span>2.0 &middot; Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
     </div>
     <nav class="nav">
       <a href="/">&#127968; <span class="lbl">Overview</span></a>
@@ -301,6 +301,7 @@ let currentDepositGoalId = null;
 
 /* ===== Mock Fetch Handler ===== */
 function reply(obj, ok){ return Promise.resolve({ok: ok !== false, json: () => Promise.resolve(obj)}); }
+const nativeFetch = window.fetch;
 window.fetch = function(url, opts){
   opts = opts || {}; const body = opts.body ? JSON.parse(opts.body) : {};
   
@@ -340,6 +341,8 @@ window.fetch = function(url, opts){
   }
   return reply({error:'404 Not Found'}, false);
 };
+// Goals are persisted with the same authenticated SQLite state used by AI Coach.
+window.fetch = nativeFetch;
 
 /* ===== Render & Helpers ===== */
 const $ = s => document.querySelector(s);
@@ -365,7 +368,7 @@ function render(){
   const saved = S.goals.reduce((s,g) => s + g.saved, 0);
   const target = S.goals.reduce((s,g) => s + g.target, 0);
   const done = S.goals.filter(g => g.saved >= g.target).length;
-  const monthly = Math.max(1, S.kpi.income - S.kpi.expense);
+  const monthly = Math.max(1500000, S.kpi.income - S.kpi.expense);
 
   const cards = S.goals.map(g => {
     const pct = Math.min(100, Math.round(g.saved / g.target * 100));
@@ -472,7 +475,7 @@ $('#saveGoalBtn').onclick = async () => {
     });
     const res = await r.json();
     if(!r.ok) throw new Error(res.error || 'Error creating goal');
-    S = res;
+    S = res.state;
     closeModal();
     render();
   } catch(e) {

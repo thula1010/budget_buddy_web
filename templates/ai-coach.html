@@ -120,7 +120,7 @@ body{
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span> &middot; Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
     </div>
     <nav class="nav">
       <a href="/">&#127968; <span class="lbl">Overview</span></a>
@@ -231,6 +231,7 @@ function coach(q){
 
 function reply(obj){ return Promise.resolve({ok: true, json: () => Promise.resolve(obj)}); }
 
+const nativeFetch = window.fetch;
 window.fetch = function(url, opts){
   opts = opts || {}; const body = opts.body ? JSON.parse(opts.body) : {};
   if(url === '/api/state') {
@@ -240,6 +241,8 @@ window.fetch = function(url, opts){
   if(url === '/api/coach') return reply({reply: coach(body.message)});
   return reply({});
 };
+// AI Coach consumes the same server-side state as every other page.
+window.fetch = nativeFetch;
 
 /* ===== UI Script ===== */
 const $ = s => document.querySelector(s);

@@ -215,7 +215,7 @@ canvas{max-width:100%}
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span> &middot; Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
     </div>
     <nav class="nav">
       <a href="/">&#127968; <span class="lbl">Overview</span></a>
@@ -266,7 +266,7 @@ canvas{max-width:100%}
     <div class="field">
       <label>Hóa đơn đính kèm (Receipt)</label>
       <div class="upload-zone" id="uploadZone">
-        <input type="file" id="fReceipt" accept="image/*">
+        <input type="file" id="fReceipt" accept="image/jpeg,image/png,image/webp" capture="environment">
         <span class="upload-icon">&#129302;</span>
         <div class="upload-text">Kéo thả hoặc click để tải hóa đơn</div>
         <div class="upload-hint">Tự động nhận diện thông tin bằng AI (JPG, PNG)</div>
@@ -414,6 +414,7 @@ function buildState(){
   return {period: P, user: DB.user, accounts: DB.accounts, categories: DB.categories, budgets: budgets, charts: {weekly: weekly}};
 }
 function reply(obj, ok){ return Promise.resolve({ok: ok !== false, json: () => Promise.resolve(obj)}); }
+const nativeFetch = window.fetch;
 window.fetch = function(url, opts){
   opts = opts || {}; const body = opts.body ? JSON.parse(opts.body) : {};
   if(url === '/api/state') return reply(buildState());
@@ -457,6 +458,8 @@ window.fetch = function(url, opts){
   }
   return reply({error:'404'}, false);
 };
+// Disable the old localStorage API shim so balances and transactions persist.
+window.fetch = nativeFetch;
 /* ===== UI Script ===== */
 const $ = s => document.querySelector(s);
 let S = null, txnType = 'expense', charts = [], currentReceiptBase64 = null;
@@ -520,13 +523,30 @@ function setupReceiptUpload(){
       previewBox.style.display = 'flex';
       
       // Auto-fill gợi ý
-      if(!$('#fMerchant').value) $('#fMerchant').value = "Highlands Coffee";
-      if(!$('#fAmount').value) {
-        $('#fAmount').value = 45000;
-        updatePreview();
-      }
+      scanReceipt(file);
     };
     reader.readAsDataURL(file);
+  }
+
+  async function scanReceipt(file){
+    $('#err').textContent = 'Đang đọc hóa đơn bằng AI...';
+    const formData = new FormData();
+    formData.append('receipt', file);
+    try {
+      const response = await nativeFetch('/api/scan-receipt', {method:'POST', body:formData});
+      const data = await response.json();
+      if(!response.ok) throw new Error(data.error || 'Không thể đọc hóa đơn');
+      $('#fMerchant').value = data.merchant || '';
+      $('#fAmount').value = data.amount || '';
+      $('#fDate').value = data.date || $('#fDate').value;
+      setType('expense');
+      const category = S.categories.find(c => c.name === data.category);
+      if(category) $('#fCat').value = category.id;
+      $('#err').textContent = 'Đã điền thông tin từ hóa đơn. Vui lòng kiểm tra trước khi lưu.';
+      updatePreview();
+    } catch(error) {
+      $('#err').textContent = error.message;
+    }
   }
 
   function clearReceipt(){
@@ -669,6 +689,7 @@ $('#saveBtn').onclick = async () => {
       })
     });
     const res = await r.json();
+    if(!r.ok) throw new Error(res.error || 'Không thể lưu giao dịch');
     S = res.state; 
     closeModal(); 
     render();

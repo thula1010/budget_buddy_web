@@ -1,46 +1,75 @@
-# Budget Buddy 💰
+# Budget Buddy
 
-Budget Buddy is a Python-based web application designed to help users track expenses, manage personal budgets, and send email notifications for key financial updates.
+Ứng dụng quản lý tài chính cá nhân bằng Flask, SQLite và AI.
 
----
+## Tính năng
 
-## 🌟 Main Features & App Usage
+- Giao dịch được lưu bền vững trong SQLite và hiển thị ngay trong lịch sử.
+- Số dư Overview, Transactions, Budgets và AI Coach dùng chung một nguồn dữ liệu.
+- Dữ liệu tài khoản, giao dịch, ngân sách và mục tiêu được tách theo người dùng.
+- Xóa giao dịch tự động hoàn tác ảnh hưởng lên số dư và ngân sách.
+- AI Coach phân tích số dư, chi tiêu, ngân sách và mục tiêu thực tế của người dùng.
+- Chụp hoặc tải ảnh hóa đơn trên điện thoại; AI tự điền cửa hàng, tổng tiền, ngày và danh mục.
+- Tự động nâng cấp database từ cấu trúc cũ mà không làm mất giao dịch/mục tiêu.
 
-### 1. Dashboard Overview
+## Cài đặt
 
-- View your total balance, monthly income, and monthly spending at a glance.
-- Monitor quick visual summaries of your financial health.
+Yêu cầu Python 3.10 trở lên.
 
-### 2. Transactions Tracker
-
-- **Add Transactions:** Log daily income or expense entries with category, amount, and date.
-- **Filter & Categorize:** Track where your money goes across categories (e.g., Food, Transportation, Shopping).
-- **History:** View a full log of all past financial activities.
-
-### 3. Budgets
-
-- **Set Limits:** Define monthly spending thresholds for specific categories.
-- **Progress Tracking:** Monitor remaining allowances in real-time.
-- **Email Alerts:** Receive automated SMTP notifications when you approach or exceed a budget limit.
-
-### 4. Savings Goals
-
-- **Define Goals:** Create personal financial targets (e.g., Emergency Fund, Vacation, New Laptop).
-- **Track Progress:** Input contributions toward your target amount and view completion percentages.
-
-### 5. AI Coach
-
-- **Smart Spending Advice:** Receive personalized suggestions on how to optimize your spending habits.
-- **Budget Insights:** Get automated feedback based on your recent transactions and active goals.
-
----
-
-## Setup & Installation Instructions
-
-Follow these steps to set up and run the project locally on your machine.
-
-### 1.
-
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+python app.py
 ```
 
+Trên macOS/Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python app.py
 ```
+
+Mở `http://127.0.0.1:5000` và tạo tài khoản.
+
+## Bật AI Coach và OCR hóa đơn
+
+Điền API key vào `.env`:
+
+```dotenv
+OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL=gpt-5.6-luna
+```
+
+Không có API key, ứng dụng vẫn hoạt động đầy đủ với bộ gợi ý tài chính cục bộ. Riêng OCR sẽ báo chưa cấu hình thay vì tạo dữ liệu hóa đơn giả.
+
+Ảnh OCR hỗ trợ JPG, PNG và WebP, tối đa 8 MB. Trên điện thoại, nút chọn ảnh có thể mở camera sau.
+
+## Kiểm thử
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+Bộ kiểm thử bao phủ:
+
+- thêm, tải lại và xóa giao dịch;
+- đồng bộ số dư/ngân sách;
+- cách ly dữ liệu giữa người dùng;
+- kiểm tra số dư không đủ;
+- AI fallback và lỗi cấu hình OCR;
+- chuyển đổi database phiên bản cũ.
+
+## Cấu hình
+
+| Biến | Mặc định | Mục đích |
+|---|---|---|
+| `SECRET_KEY` | giá trị chỉ dành cho phát triển | Khóa phiên đăng nhập; bắt buộc đổi khi triển khai |
+| `DATABASE_URL` | `sqlite:///instance/app.db` | Kết nối database |
+| `OPENAI_API_KEY` | trống | Bật AI Coach nâng cao và OCR |
+| `OPENAI_MODEL` | `gpt-5.6-luna` | Model dùng cho AI/OCR |
+| `FLASK_DEBUG` | `0` | Đặt `1` chỉ khi phát triển |

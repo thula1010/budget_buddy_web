@@ -1,24 +1,42 @@
+import base64
+import hashlib
+import json
+import math
 import os
-from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
+import re
+from datetime import UTC, date, datetime
+
+from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
+from flask_login import LoginManager, UserMixin, current_user, login_required, login_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
-from services.notification import send_goal_plan_email
+from sqlalchemy import inspect, text
+from dotenv import load_dotenv
+from werkzeug.security import check_password_hash, generate_password_hash
 
+try:
+    from openai import OpenAI
+except ImportError:  # AI features remain optional until dependencies are installed.
+    OpenAI = None
+
+try:
+    from services.notification import send_goal_plan_email
+except Exception:
+    send_goal_plan_email = None
+
+
+load_dotenv()
 app = Flask(__name__)
-# Đổi thành key bí mật bất kỳ
-app.config['SECRET_KEY'] = 'super-secret-key-123'
-db_path = os.path.join(app.instance_path, 'app.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL", f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 os.makedirs(app.instance_path, exist_ok=True)
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
-login_manager.login_view = 'login'  # Chưa login sẽ tự động nhảy về route này
-
-# --- MODELS ---
+login_manager.login_view = "login"
 
 
 class User(UserMixin, db.Model):
@@ -28,242 +46,747 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(200), nullable=False)
 
 
+class Account(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(30), nullable=False)
+    icon = db.Column(db.String(10), nullable=False)
+    opening_balance = db.Column(db.Float, nullable=False, default=0)
+    __table_args__ = (db.UniqueConstraint("user_id", "name"),)
+
+
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    kind = db.Column(db.String(20), nullable=False)
+    icon = db.Column(db.String(10), nullable=False)
+    color = db.Column(db.String(10), nullable=False)
+    bg = db.Column(db.String(10), nullable=False)
+
+
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    amount = db.Column(db.Float, nullable=False)
-    category = db.Column(db.String(100), nullable=False)
-    type = db.Column(db.String(20), nullable=False)  # 'income' hoặc 'expense'
-    note = db.Column(db.String(200), nullable=True)
-    date = db.Column(db.String(50), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("account.id"), nullable=False, index=True)
+    category_id = db.Column(db.Integer, db.ForeignKey("category.id"), nullable=False, index=True)
+    amount = db.Column(db.Float, nullable=False)  # Income is positive, expense is negative.
+    merchant = db.Column(db.String(200), nullable=False)
+    date = db.Column(db.String(10), nullable=False, index=True)
+    ai_tagged = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC))
+
+
+class Budget(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    category_id = db.Column(db.Integer, db.ForeignKey("category.id"), nullable=False)
+    limit_vnd = db.Column(db.Float, nullable=False)
+    __table_args__ = (db.UniqueConstraint("user_id", "category_id"),)
 
 
 class Goal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
     name = db.Column(db.String(100), nullable=False)
     target = db.Column(db.Float, nullable=False)
-    current_saved = db.Column(db.Float, default=0.0)
+    current_saved = db.Column(db.Float, nullable=False, default=0)
+    deadline = db.Column(db.String(30), nullable=False, default="")
+    icon = db.Column(db.String(10), nullable=False, default="🎯")
+    accent = db.Column(db.String(10), nullable=False, default="#0D9488")
 
 
-with app.app_context():
-    db.create_all()
+CATEGORY_SEED = [
+    ("Food & Drinks", "expense", "🍜", "#B45309", "#FEF3C7"),
+    ("Transport", "expense", "🛵", "#6D28D9", "#EDE9FE"),
+    ("Education", "expense", "📚", "#1D4ED8", "#DBEAFE"),
+    ("Entertainment", "expense", "🎬", "#BE185D", "#FCE7F3"),
+    ("Shopping", "expense", "🛍", "#0F766E", "#CCFBF1"),
+    ("Income", "income", "💼", "#047857", "#D1FAE5"),
+]
+ACCOUNT_SEED = [
+    ("Personal Wallet", "cash", "💵", 520000),
+    ("MB Bank", "bank", "🏦", 1450000),
+    ("Techcombank", "bank", "🏦", 480000),
+    ("MoMo", "ewallet", "📱", 260000),
+    ("ShopeePay", "ewallet", "📱", 90000),
+]
+BUDGET_SEED = {
+    "Food & Drinks": 600000,
+    "Transport": 150000,
+    "Entertainment": 80000,
+    "Education": 300000,
+    "Shopping": 100000,
+}
+
+
+def seed_categories():
+    for name, kind, icon, color, bg in CATEGORY_SEED:
+        if not Category.query.filter_by(name=name).first():
+            db.session.add(Category(name=name, kind=kind, icon=icon, color=color, bg=bg))
+    db.session.commit()
+
+
+def prepare_legacy_tables():
+    """Rename incompatible pre-fix tables so create_all can build the new schema."""
+    table_requirements = {
+        "transaction": {"user_id", "account_id", "category_id", "merchant", "ai_tagged", "created_at"},
+        "goal": {"user_id", "deadline", "icon", "accent"},
+    }
+    renamed = []
+    schema = inspect(db.engine)
+    existing = set(schema.get_table_names())
+    with db.engine.begin() as connection:
+        for table_name, required_columns in table_requirements.items():
+            legacy_name = f"{table_name}_legacy"
+            if table_name not in existing or legacy_name in existing:
+                continue
+            columns = {column["name"] for column in schema.get_columns(table_name)}
+            if not required_columns.issubset(columns):
+                connection.exec_driver_sql(
+                    f'ALTER TABLE "{table_name}" RENAME TO "{legacy_name}"'
+                )
+                renamed.append(legacy_name)
+    return renamed
+
+
+def migrate_legacy_data(legacy_tables):
+    """Import data from the original schema once, then remove only the temp tables."""
+    if not legacy_tables:
+        return
+    users = User.query.order_by(User.id).all()
+    if not users:
+        app.logger.warning("Legacy finance data exists but there is no user to own it yet.")
+        return
+    for user in users:
+        ensure_user_data(user)
+    users_by_id = {user.id: user for user in users}
+    fallback_user = users[0]
+    categories = Category.query.all()
+    categories_by_id = {category.id: category for category in categories}
+    categories_by_name = {category.name.lower(): category for category in categories}
+
+    try:
+        if "transaction_legacy" in legacy_tables and Transaction.query.count() == 0:
+            rows = db.session.execute(text('SELECT * FROM "transaction_legacy"')).mappings().all()
+            for row in rows:
+                user = users_by_id.get(row.get("user_id")) or fallback_user
+                account = None
+                if row.get("account_id"):
+                    account = Account.query.filter_by(id=row["account_id"], user_id=user.id).first()
+                if not account and row.get("account"):
+                    account = Account.query.filter_by(user_id=user.id, name=row["account"]).first()
+                account = account or Account.query.filter_by(user_id=user.id).order_by(Account.id).first()
+
+                category = categories_by_id.get(row.get("category_id"))
+                if not category and row.get("category"):
+                    category = categories_by_name.get(str(row["category"]).lower())
+                tx_type = row.get("type") or ("income" if float(row.get("amount") or 0) > 0 else "expense")
+                category = category or next(
+                    c for c in categories if c.kind == ("income" if tx_type == "income" else "expense")
+                )
+                amount = abs(float(row.get("amount") or 0))
+                if amount <= 0:
+                    continue
+                tx_date = str(row.get("date") or date.today().isoformat())[:10]
+                try:
+                    datetime.strptime(tx_date, "%Y-%m-%d")
+                except ValueError:
+                    tx_date = date.today().isoformat()
+                db.session.add(Transaction(
+                    user_id=user.id,
+                    account_id=account.id,
+                    category_id=category.id,
+                    amount=amount if tx_type == "income" else -amount,
+                    merchant=str(row.get("merchant") or row.get("note") or "Giao dịch cũ")[:200],
+                    date=tx_date,
+                    ai_tagged=bool(row.get("ai_tagged", False)),
+                ))
+
+        if "goal_legacy" in legacy_tables and Goal.query.count() == 0:
+            rows = db.session.execute(text('SELECT * FROM "goal_legacy"')).mappings().all()
+            for row in rows:
+                user = users_by_id.get(row.get("user_id")) or fallback_user
+                target = float(row.get("target") or 0)
+                if target <= 0:
+                    continue
+                db.session.add(Goal(
+                    user_id=user.id,
+                    name=str(row.get("name") or "Mục tiêu cũ")[:100],
+                    target=target,
+                    current_saved=float(row.get("current_saved") or row.get("saved") or 0),
+                    deadline=str(row.get("deadline") or "")[:30],
+                    icon=str(row.get("icon") or "🎯")[:10],
+                    accent=str(row.get("accent") or "#0D9488")[:10],
+                ))
+        db.session.commit()
+        with db.engine.begin() as connection:
+            for table_name in legacy_tables:
+                connection.exec_driver_sql(f'DROP TABLE IF EXISTS "{table_name}"')
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Legacy database migration failed; legacy tables were preserved")
+        raise
+
+
+def ensure_user_data(user):
+    if not Account.query.filter_by(user_id=user.id).first():
+        for name, account_type, icon, balance in ACCOUNT_SEED:
+            db.session.add(Account(
+                user_id=user.id, name=name, type=account_type, icon=icon,
+                opening_balance=balance,
+            ))
+    if not Budget.query.filter_by(user_id=user.id).first():
+        categories = {c.name: c for c in Category.query.all()}
+        for name, limit in BUDGET_SEED.items():
+            db.session.add(Budget(
+                user_id=user.id, category_id=categories[name].id, limit_vnd=limit,
+            ))
+    db.session.commit()
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
-
-# --- AUTH ROUTES (Login, Signup, Logout) ---
+    return db.session.get(User, int(user_id))
 
 
-@app.route('/login', methods=['GET'])
+def valid_period(value):
+    if value and re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", value):
+        return value
+    return date.today().strftime("%Y-%m")
+
+
+def account_transaction_delta(account):
+    return float(
+        db.session.query(db.func.coalesce(db.func.sum(Transaction.amount), 0))
+        .filter_by(user_id=account.user_id, account_id=account.id)
+        .scalar()
+    )
+
+
+def account_balance(account):
+    return float(account.opening_balance + account_transaction_delta(account))
+
+
+def serialize_transaction(tx):
+    account = db.session.get(Account, tx.account_id)
+    category = db.session.get(Category, tx.category_id)
+    return {
+        "id": tx.id,
+        "merchant": tx.merchant,
+        "note": tx.merchant,
+        "amount": float(tx.amount),
+        "type": "income" if tx.amount > 0 else "expense",
+        "date": tx.date,
+        "category_id": category.id,
+        "category": category.name,
+        "cat_icon": category.icon,
+        "color": category.color,
+        "bg": category.bg,
+        "account_id": account.id,
+        "account": account.name,
+        "acc_icon": account.icon,
+        "ai_tagged": int(tx.ai_tagged),
+        "created_at": tx.created_at.isoformat(timespec="seconds"),
+    }
+
+
+def build_state(user, period=None):
+    ensure_user_data(user)
+    period = valid_period(period)
+    accounts = Account.query.filter_by(user_id=user.id).order_by(Account.id).all()
+    categories = Category.query.order_by(Category.id).all()
+    transactions = (
+        Transaction.query.filter_by(user_id=user.id)
+        .order_by(Transaction.date.desc(), Transaction.id.desc())
+        .all()
+    )
+    month_transactions = [t for t in transactions if t.date.startswith(period)]
+    income = sum(t.amount for t in month_transactions if t.amount > 0)
+    expense = -sum(t.amount for t in month_transactions if t.amount < 0)
+
+    category_by_id = {c.id: c for c in categories}
+    budgets = []
+    for budget in Budget.query.filter_by(user_id=user.id).order_by(Budget.id).all():
+        category = category_by_id[budget.category_id]
+        spent = -sum(
+            t.amount for t in month_transactions
+            if t.category_id == category.id and t.amount < 0
+        )
+        pct = round(spent / budget.limit_vnd * 100) if budget.limit_vnd else 0
+        budgets.append({
+            "id": budget.id,
+            "category_id": category.id,
+            "category": category.name,
+            "icon": category.icon,
+            "color": category.color,
+            "bg": category.bg,
+            "limit_vnd": float(budget.limit_vnd),
+            "spent": float(spent),
+            "pct": pct,
+            "over": float(max(0, spent - budget.limit_vnd)),
+            "period": period,
+        })
+
+    weekly = [0.0, 0.0, 0.0, 0.0]
+    by_category = {}
+    for tx in month_transactions:
+        if tx.amount >= 0:
+            continue
+        day = int(tx.date[-2:])
+        weekly[min((day - 1) // 7, 3)] += -tx.amount
+        name = category_by_id[tx.category_id].name
+        by_category[name] = by_category.get(name, 0) - tx.amount
+
+    goals = [
+        {
+            "id": g.id, "name": g.name, "target": float(g.target),
+            "saved": float(g.current_saved), "current_saved": float(g.current_saved),
+            "icon": g.icon, "accent": g.accent, "deadline": g.deadline,
+        }
+        for g in Goal.query.filter_by(user_id=user.id).order_by(Goal.id).all()
+    ]
+    total_balance = sum(account_balance(a) for a in accounts)
+    savings_rate = round((income - expense) / income * 100) if income else 0
+
+    notifications = []
+    over_budget = sorted((b for b in budgets if b["over"] > 0), key=lambda b: b["over"], reverse=True)
+    if over_budget:
+        b = over_budget[0]
+        notifications.append({
+            "id": 1, "kind": "warn", "ago": "Hiện tại",
+            "text": f'{b["category"]} đã vượt ngân sách {b["over"]:,.0f} ₫',
+        })
+    if transactions:
+        notifications.append({
+            "id": 2, "kind": "done", "ago": "Mới nhất",
+            "text": f'Đã đồng bộ giao dịch “{transactions[0].merchant}”',
+        })
+
+    return {
+        "period": period,
+        "user": {
+            "name": user.username,
+            "initials": user.username[:2].upper(),
+            "plan": "Student",
+        },
+        "accounts": [
+            {
+                "id": a.id, "name": a.name, "type": a.type, "icon": a.icon,
+                "balance": account_balance(a),
+            }
+            for a in accounts
+        ],
+        "categories": [
+            {
+                "id": c.id, "name": c.name, "kind": c.kind, "icon": c.icon,
+                "color": c.color, "bg": c.bg,
+            }
+            for c in categories
+        ],
+        "transactions": [serialize_transaction(t) for t in transactions],
+        "budgets": budgets,
+        "goals": goals,
+        "notifications": notifications,
+        "kpi": {
+            "balance": float(total_balance), "income": float(income),
+            "expense": float(expense), "savings_rate": savings_rate,
+            "target_rate": 70,
+        },
+        "charts": {"weekly": weekly, "by_category": by_category},
+    }
+
+
+def json_error(message, status=400):
+    return jsonify({"error": message}), status
+
+
+def openai_client():
+    if not os.environ.get("OPENAI_API_KEY") or OpenAI is None:
+        return None
+    return OpenAI()
+
+
+def extract_json(text):
+    text = (text or "").strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I)
+    return json.loads(text)
+
+
+def local_coach_reply(message, state):
+    query = message.lower()
+    kpi = state["kpi"]
+    if any(word in query for word in ("số dư", "so du", "tài khoản", "tai khoan")):
+        items = ", ".join(f'{a["name"]}: {a["balance"]:,.0f} ₫' for a in state["accounts"])
+        return f'Số dư hiện tại: {items}. Tổng cộng {kpi["balance"]:,.0f} ₫.'
+    if any(word in query for word in ("ngân sách", "ngan sach", "vượt", "vuot")):
+        worst = max(state["budgets"], key=lambda b: b["pct"], default=None)
+        if not worst or not worst["spent"]:
+            return "Tháng này chưa có khoản chi nào để đánh giá ngân sách."
+        action = "Dừng các khoản không thiết yếu trong nhóm này" if worst["over"] else "Giữ mức chi còn lại dưới hạn mức"
+        return f'{worst["category"]} đang ở mức {worst["pct"]}% ngân sách. {action}.'
+    if any(word in query for word in ("mục tiêu", "muc tieu", "goal", "tiết kiệm", "tiet kiem")):
+        if not state["goals"]:
+            return "Bạn chưa có mục tiêu tiết kiệm. Hãy tạo một mục tiêu có số tiền và thời hạn cụ thể."
+        goal = min(state["goals"], key=lambda g: max(0, g["target"] - g["saved"]))
+        remaining = max(0, goal["target"] - goal["saved"])
+        return f'“{goal["name"]}” còn {remaining:,.0f} ₫. Hãy dành một khoản cố định ngay sau mỗi lần nhận thu nhập.'
+    if kpi["income"] <= 0:
+        return f'Tháng này bạn đã chi {kpi["expense"]:,.0f} ₫ nhưng chưa ghi nhận thu nhập. Hãy thêm thu nhập để AI tính tỷ lệ tiết kiệm chính xác.'
+    return (
+        f'Tháng này bạn thu {kpi["income"]:,.0f} ₫, chi {kpi["expense"]:,.0f} ₫ '
+        f'và tỷ lệ tiết kiệm là {kpi["savings_rate"]}%. Ưu tiên giảm danh mục chi lớn nhất trước.'
+    )
+
+
+@app.route("/login")
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('overview'))
-    return render_template('login.html')
+        return redirect(url_for("overview"))
+    return render_template("login.html")
 
 
-@app.route('/api/login', methods=['POST'])
+@app.route("/api/login", methods=["POST"])
 def api_login():
-    data = request.form
-    username = data.get('username')
-    password = data.get('password')
-
-    user = User.query.filter_by(username=username).first()
-
-    if not user or not check_password_hash(user.password_hash, password):
-        flash('Tên đăng nhập hoặc mật khẩu không chính xác!', 'error')
-        return redirect(url_for('login'))
-
+    user = User.query.filter_by(username=request.form.get("username", "").strip()).first()
+    if not user or not check_password_hash(user.password_hash, request.form.get("password", "")):
+        flash("Tên đăng nhập hoặc mật khẩu không chính xác!", "error")
+        return redirect(url_for("login"))
     login_user(user)
-    return redirect(url_for('overview'))
+    ensure_user_data(user)
+    return redirect(url_for("overview"))
 
 
-@app.route('/api/signup', methods=['POST'])
+@app.route("/api/signup", methods=["POST"])
 def api_signup():
-    data = request.form
-    username = data.get('username')
-    email = data.get('email')
-    password = data.get('password')
-    confirm_password = data.get('confirm_password')
-
-    if password != confirm_password:
-        flash('Mật khẩu nhập lại không khớp!', 'error')
-        return redirect(url_for('login'))
-
-    if User.query.filter_by(username=username).first():
-        flash('Tên đăng nhập đã tồn tại!', 'error')
-        return redirect(url_for('login'))
-
-    if User.query.filter_by(email=email).first():
-        flash('Email đã được đăng ký!', 'error')
-        return redirect(url_for('login'))
-
-    hashed_pwd = generate_password_hash(password)
-    new_user = User(username=username, email=email, password_hash=hashed_pwd)
-    db.session.add(new_user)
+    username = request.form.get("username", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+    if not username or not email or not password:
+        flash("Vui lòng nhập đầy đủ thông tin!", "error")
+        return redirect(url_for("login"))
+    if password != request.form.get("confirm_password", ""):
+        flash("Mật khẩu nhập lại không khớp!", "error")
+        return redirect(url_for("login"))
+    if User.query.filter((User.username == username) | (User.email == email)).first():
+        flash("Tên đăng nhập hoặc email đã tồn tại!", "error")
+        return redirect(url_for("login"))
+    user = User(username=username, email=email, password_hash=generate_password_hash(password))
+    db.session.add(user)
     db.session.commit()
+    ensure_user_data(user)
+    login_user(user)
+    return redirect(url_for("overview"))
 
-    login_user(new_user)
-    return redirect(url_for('overview'))
 
-
-@app.route('/logout')
+@app.route("/logout")
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('login'))
+    return redirect(url_for("login"))
 
 
-# --- MAIN APP ROUTES ---
-
-@app.route('/')
+@app.route("/")
 @login_required
 def overview():
-    # Lấy toàn bộ dữ liệu từ CSDL ra để truyền sang HTML
-    transactions_list = Transaction.query.order_by(Transaction.id.desc()).all()
-    goals_list = Goal.query.all()
-    return render_template('overview.html', user=current_user, transactions=transactions_list, goals=goals_list)
+    return render_template("overview.html", user=current_user)
 
 
-@app.route('/transactions')
+@app.route("/transactions")
 @login_required
 def transactions():
-    return render_template('transactions.html', user=current_user)
+    return render_template("transactions.html", user=current_user)
 
 
-@app.route('/budgets')
+@app.route("/budgets")
 @login_required
 def budgets():
-    return render_template('budgets.html', user=current_user)
+    return render_template("budgets.html", user=current_user)
 
 
-@app.route('/goals')
+@app.route("/goals")
 @login_required
 def goals():
-    goals_list = Goal.query.all()
-    return render_template('goals.html', user=current_user, goals=goals_list)
+    return render_template("goals.html", user=current_user, goals=Goal.query.filter_by(user_id=current_user.id).all())
 
 
-@app.route('/ai-coach')
+@app.route("/ai-coach")
 @login_required
 def ai_coach():
-    return render_template('ai-coach.html', user=current_user)
+    return render_template("ai-coach.html", user=current_user)
 
 
-# ---------------- TRANSACTIONS API ----------------
-
-@app.route('/api/transactions', methods=['GET'])
-def get_transactions():
-    transactions = Transaction.query.all()
-    result = [{
-        'id': t.id,
-        'amount': t.amount,
-        'category': t.category,
-        'type': t.type,
-        'note': t.note,
-        'date': t.date
-    } for t in transactions]
-    return jsonify(result)
+@app.route("/api/state")
+@login_required
+def get_state():
+    return jsonify(build_state(current_user, request.args.get("period")))
 
 
-@app.route('/api/transactions', methods=['POST'])
-def add_transaction():
-    data = request.json
-    new_tx = Transaction(
-        amount=data['amount'],
-        category=data['category'],
-        type=data['type'],
-        note=data.get('note', ''),
-        date=data['date']
-    )
-    db.session.add(new_tx)
+@app.route("/api/accounts/<int:account_id>/balance", methods=["PATCH"])
+@login_required
+def update_account_balance(account_id):
+    data = request.get_json(silent=True) or {}
+    try:
+        raw_balance = float(data.get("balance"))
+    except (TypeError, ValueError):
+        return json_error("Số dư không hợp lệ.")
+    if not math.isfinite(raw_balance) or raw_balance < 0:
+        return json_error("Số dư phải là số không âm.")
+    target_balance = round(raw_balance)
+
+    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first()
+    if not account:
+        return json_error("Không tìm thấy tài khoản.", 404)
+
+    # Preserve the complete transaction history. The opening balance is adjusted
+    # so opening balance + all transaction deltas equals the requested balance.
+    account.opening_balance = target_balance - account_transaction_delta(account)
     db.session.commit()
-    return jsonify({"success": True, "id": new_tx.id})
-
-
-# ---------------- GOALS API ----------------
-
-@app.route('/api/goals', methods=['GET'])
-def get_goals():
-    goals = Goal.query.all()
-    result = [{
-        'id': g.id,
-        'name': g.name,
-        'target': g.target,
-        'current_saved': g.current_saved
-    } for g in goals]
-    return jsonify(result)
-
-
-@app.route('/api/goals', methods=['POST'])
-def add_goal():
-    data = request.json
-    new_goal = Goal(
-        name=data['name'],
-        target=data['target'],
-        current_saved=data.get('current_saved', 0.0)
-    )
-    db.session.add(new_goal)
-    db.session.commit()
-
-    # Gửi email thông báo tạo mục tiêu nếu có truyền email
-    if current_user.email:
-        remaining = max(0, new_goal.target - new_goal.current_saved)
-        monthly_needed = 1500000
-        est_months = max(1, int(remaining / monthly_needed)
-                         ) if remaining > 0 else 0
-        send_goal_plan_email(
-            current_user.email,
-            current_user.username,
-            new_goal.name,
-            new_goal.target,
-            new_goal.current_saved,
-            monthly_needed,
-            est_months
-        )
-
-    return jsonify({"success": True, "id": new_goal.id})
-
-
-@app.route('/api/goals/<int:goal_id>/deposit', methods=['POST'])
-def deposit_goal(goal_id):
-    data = request.json
-    deposit_amount = float(data.get('amount', 0))
-
-    goal = Goal.query.get_or_404(goal_id)
-    goal.current_saved += deposit_amount
-    db.session.commit()
-
-    # Tính toán thông số gửi email
-    remaining = max(0, goal.target - goal.current_saved)
-    monthly_needed = 1500000
-    est_months = max(1, int(remaining / monthly_needed)
-                     ) if remaining > 0 else 0
-
-    user_email = current_user.email if current_user.is_authenticated else data.get(
-        'user_email')
-    username = current_user.username if current_user.is_authenticated else data.get(
-        'username', 'Bạn')
-
-    if user_email:
-        send_goal_plan_email(
-            to_email=user_email,
-            username=username,
-            goal_name=goal.name,
-            target=goal.target,
-            current_saved=goal.current_saved,
-            monthly_needed=monthly_needed,
-            est_months=est_months
-        )
-
     return jsonify({
         "success": True,
-        "current_saved": goal.current_saved,
-        "message": f"Đã nạp {deposit_amount:,.0f} ₫ vào mục tiêu {goal.name}"
+        "state": build_state(current_user, data.get("period")),
     })
 
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
+@app.route("/api/transactions", methods=["GET"])
+@login_required
+def get_transactions():
+    rows = (
+        Transaction.query.filter_by(user_id=current_user.id)
+        .order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+    )
+    return jsonify([serialize_transaction(tx) for tx in rows])
+
+
+@app.route("/api/transactions", methods=["POST"])
+@login_required
+def add_transaction():
+    data = request.get_json(silent=True) or {}
+    merchant = str(data.get("merchant") or data.get("note") or "").strip()
+    try:
+        amount = round(abs(float(data.get("amount", 0))))
+        account_id = int(data.get("account_id"))
+        category_id = int(data.get("category_id"))
+    except (TypeError, ValueError):
+        return json_error("Dữ liệu giao dịch không hợp lệ.")
+    tx_type = data.get("type")
+    tx_date = str(data.get("date") or date.today().isoformat())
+    if not merchant:
+        return json_error("Vui lòng nhập tên giao dịch.")
+    if amount <= 0:
+        return json_error("Số tiền phải lớn hơn 0.")
+    try:
+        datetime.strptime(tx_date, "%Y-%m-%d")
+    except ValueError:
+        return json_error("Ngày giao dịch không hợp lệ.")
+    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first()
+    category = db.session.get(Category, category_id)
+    if not account or not category or tx_type not in ("income", "expense") or category.kind != tx_type:
+        return json_error("Tài khoản, danh mục hoặc loại giao dịch không hợp lệ.")
+    signed_amount = amount if tx_type == "income" else -amount
+    if account_balance(account) + signed_amount < 0:
+        return json_error(f"Số dư {account.name} không đủ.")
+
+    tx = Transaction(
+        user_id=current_user.id, account_id=account.id, category_id=category.id,
+        merchant=merchant, amount=signed_amount, date=tx_date,
+        ai_tagged=bool(data.get("ai_tagged")),
+    )
+    db.session.add(tx)
+    db.session.commit()
+
+    state = build_state(current_user, tx_date[:7])
+    budget = next((b for b in state["budgets"] if b["category_id"] == category.id), None)
+    breach = None
+    if tx_type == "expense" and budget and budget["over"] > 0:
+        breach = {
+            "category": budget["category"], "spent": budget["spent"],
+            "limit": budget["limit_vnd"], "over": budget["over"],
+        }
+    return jsonify({"success": True, "id": tx.id, "state": state, "breachAlert": breach}), 201
+
+
+@app.route("/api/transactions/<int:transaction_id>", methods=["DELETE"])
+@login_required
+def delete_transaction(transaction_id):
+    tx = Transaction.query.filter_by(id=transaction_id, user_id=current_user.id).first()
+    if not tx:
+        return json_error("Không tìm thấy giao dịch.", 404)
+    period = tx.date[:7]
+    db.session.delete(tx)
+    db.session.commit()
+    return jsonify(build_state(current_user, period))
+
+
+@app.route("/api/coach", methods=["POST"])
+@login_required
+def coach():
+    message = str((request.get_json(silent=True) or {}).get("message", "")).strip()
+    if not message:
+        return json_error("Vui lòng nhập câu hỏi.")
+    state = build_state(current_user)
+    client = openai_client()
+    if client:
+        try:
+            compact = {
+                "kpi": state["kpi"], "accounts": state["accounts"],
+                "budgets": state["budgets"], "goals": state["goals"],
+                "recent_transactions": state["transactions"][:20],
+            }
+            response = client.responses.create(
+                model=os.environ.get("OPENAI_MODEL", "gpt-5.6-luna"),
+                reasoning={"effort": "low"},
+                safety_identifier=hashlib.sha256(
+                    f"budget-buddy-user:{current_user.id}".encode()
+                ).hexdigest(),
+                input=[{
+                    "role": "user",
+                    "content": (
+                        "Bạn là trợ lý tài chính cá nhân. Trả lời tiếng Việt, tối đa 120 từ, "
+                        "dựa đúng dữ liệu; không bịa số. Nêu 1-3 hành động cụ thể. "
+                        f"Dữ liệu: {json.dumps(compact, ensure_ascii=False)}\nCâu hỏi: {message}"
+                    ),
+                }],
+            )
+            return jsonify({"reply": response.output_text, "source": "openai"})
+        except Exception:
+            app.logger.exception("AI Coach failed; using local insight engine")
+    return jsonify({"reply": local_coach_reply(message, state), "source": "local"})
+
+
+@app.route("/api/scan-receipt", methods=["POST"])
+@login_required
+def scan_receipt():
+    receipt = request.files.get("receipt")
+    if not receipt or not receipt.filename:
+        return json_error("Vui lòng chọn ảnh hóa đơn.")
+    if receipt.mimetype not in {"image/jpeg", "image/png", "image/webp"}:
+        return json_error("Chỉ hỗ trợ ảnh JPG, PNG hoặc WebP.")
+    client = openai_client()
+    if not client:
+        return json_error("OCR AI chưa được cấu hình. Hãy đặt biến OPENAI_API_KEY.", 503)
+    raw = receipt.read()
+    if not raw:
+        return json_error("Ảnh hóa đơn trống.")
+    data_url = f"data:{receipt.mimetype};base64,{base64.b64encode(raw).decode('ascii')}"
+    category_names = [c.name for c in Category.query.filter_by(kind="expense").all()]
+    schema = {
+        "type": "object",
+        "properties": {
+            "merchant": {"type": "string"},
+            "amount": {"type": "number"},
+            "date": {"type": "string"},
+            "category": {"type": "string", "enum": category_names},
+        },
+        "required": ["merchant", "amount", "date", "category"],
+        "additionalProperties": False,
+    }
+    try:
+        response = client.responses.create(
+            model=os.environ.get("OPENAI_MODEL", "gpt-5.6-luna"),
+            reasoning={"effort": "low"},
+            safety_identifier=hashlib.sha256(
+                f"budget-buddy-user:{current_user.id}".encode()
+            ).hexdigest(),
+            input=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "Đọc hóa đơn Việt Nam này. Lấy tên cửa hàng, tổng tiền cuối cùng "
+                            "(VND, chỉ số), ngày YYYY-MM-DD và chọn danh mục phù hợp. "
+                            "Không dùng số tiền của từng món. Nếu không thấy ngày, dùng hôm nay."
+                        ),
+                    },
+                    {"type": "input_image", "image_url": data_url, "detail": "high"},
+                ],
+            }],
+            text={"format": {"type": "json_schema", "name": "receipt", "strict": True, "schema": schema}},
+        )
+        result = extract_json(response.output_text)
+        result["amount"] = round(abs(float(result["amount"])))
+        if result["amount"] <= 0:
+            raise ValueError("invalid amount")
+        try:
+            datetime.strptime(result["date"], "%Y-%m-%d")
+        except ValueError:
+            result["date"] = date.today().isoformat()
+        return jsonify(result)
+    except Exception:
+        app.logger.exception("Receipt OCR failed")
+        return json_error("Không thể đọc hóa đơn này. Hãy chụp rõ toàn bộ hóa đơn và thử lại.", 422)
+
+
+@app.route("/api/goals", methods=["GET"])
+@login_required
+def get_goals():
+    return jsonify(build_state(current_user)["goals"])
+
+
+@app.route("/api/goals", methods=["POST"])
+@login_required
+def add_goal():
+    data = request.get_json(silent=True) or {}
+    try:
+        target = float(data.get("target", 0))
+        saved = float(data.get("current_saved", data.get("saved", 0)))
+    except (TypeError, ValueError):
+        return json_error("Số tiền mục tiêu không hợp lệ.")
+    name = str(data.get("name", "")).strip()
+    if not name or target <= 0 or saved < 0:
+        return json_error("Thông tin mục tiêu không hợp lệ.")
+    goal = Goal(
+        user_id=current_user.id, name=name, target=target, current_saved=saved,
+        deadline=str(data.get("deadline", "")).strip()[:30],
+        icon=str(data.get("icon", "🎯"))[:10],
+        accent=str(data.get("accent", "#0D9488"))[:10],
+    )
+    db.session.add(goal)
+    db.session.commit()
+    return jsonify({"success": True, "id": goal.id, "state": build_state(current_user)}), 201
+
+
+@app.route("/api/goals/<int:goal_id>/deposit", methods=["POST"])
+@login_required
+def deposit_goal(goal_id):
+    goal = Goal.query.filter_by(id=goal_id, user_id=current_user.id).first()
+    if not goal:
+        return json_error("Không tìm thấy mục tiêu.", 404)
+    try:
+        amount = float((request.get_json(silent=True) or {}).get("amount", 0))
+    except (TypeError, ValueError):
+        return json_error("Số tiền không hợp lệ.")
+    if amount <= 0:
+        return json_error("Số tiền phải lớn hơn 0.")
+    goal.current_saved += amount
+    db.session.commit()
+    if (
+        send_goal_plan_email
+        and current_user.email
+        and os.environ.get("EMAIL_USER")
+        and os.environ.get("EMAIL_PASS")
+    ):
+        try:
+            remaining = max(0, goal.target - goal.current_saved)
+            monthly_needed = 1500000
+            send_goal_plan_email(
+                current_user.email, current_user.username, goal.name, goal.target,
+                goal.current_saved, monthly_needed,
+                max(1, int(remaining / monthly_needed)) if remaining else 0,
+            )
+        except Exception:
+            app.logger.exception("Goal email notification failed")
+    return jsonify(build_state(current_user))
+
+
+with app.app_context():
+    legacy_tables = prepare_legacy_tables()
+    db.create_all()
+    seed_categories()
+    migrate_legacy_data(legacy_tables)
+
+
+if __name__ == "__main__":
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")

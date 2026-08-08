@@ -235,7 +235,7 @@ tr.txn:hover .del{opacity:1}
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span> &middot; Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
     </div>
     <nav class="nav" id="nav">
       <button data-tab="overview" onclick="window.location.href='/'">&#127968; <span class="lbl">Overview</span></button>
@@ -293,7 +293,7 @@ tr.txn:hover .del{opacity:1}
         <div class="dropzone-text-main" id="dzMain">Kéo thả hoặc click để tải hóa đơn</div>
         <div class="dropzone-text-sub" id="dzSub">Tự động nhận diện thông tin bằng AI (JPG, PNG)</div>
       </div>
-      <input type="file" id="innerReceiptInput" accept="image/*" style="display:none">
+      <input type="file" id="innerReceiptInput" accept="image/jpeg,image/png,image/webp" capture="environment" style="display:none">
     </div>
 
     <div class="field"><label>Merchant / Mô tả</label><input id="fMerchant" placeholder="VD: Highlands Coffee"></div>
@@ -423,6 +423,8 @@ window.fetch = async function(url, opts){
   }
   return reply({error:'404'}, false);
 };
+// All pages now read and write the same authenticated Flask/SQLite state.
+window.fetch = nativeFetch;
 
 const $ = s => document.querySelector(s);
 let S = null, txnType = 'expense', search = '', selectedCat = 'all', startDate = '', endDate = '';
@@ -486,6 +488,9 @@ async function load(){
 function render(){
   if(!S) return;
   $('#pageTitle').textContent = 'Transactions';
+  const [periodYear, periodMonth] = S.period.split('-').map(Number);
+  $('#pageSub').textContent = new Date(periodYear, periodMonth - 1, 1)
+    .toLocaleDateString('vi-VN', {month:'long', year:'numeric'}) + ' · Tất cả tài khoản đã đồng bộ';
   $('#budDot').style.display = S.budgets.some(b => b.over > 0) ? 'block' : 'none';
   $('#view').innerHTML = vTxns();
   after();
@@ -679,12 +684,19 @@ async function processReceipt(file) {
         method: 'POST',
         body: formData
       });
-      if(response.ok) resData = await response.json();
+      if(response.ok) {
+        resData = await response.json();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Không thể đọc hóa đơn');
+      }
     } catch(err) {
+      throw err;
       console.warn("Backend OCR API chưa sẵn sàng, dùng AI bóc tách giả lập");
     }
 
-    if(!resData) {
+    if(!resData) throw new Error('Không nhận được dữ liệu OCR');
+    if(false) {
       await new Promise(r => setTimeout(r, 1000));
       resData = {
         merchant: "Highlands Coffee",
@@ -729,7 +741,7 @@ $('#overlay').onclick = e => { if(e.target === $('#overlay')) closeModal(); };
 $('#saveBtn').onclick = async () => {
   $('#err').textContent = '';
   try{
-    S = await post('/api/transactions', {
+    const result = await post('/api/transactions', {
       merchant: $('#fMerchant').value,
       amount:   $('#fAmount').value,
       date:     $('#fDate').value,
@@ -738,6 +750,7 @@ $('#saveBtn').onclick = async () => {
       account_id:  parseInt($('#fAcc').value, 10),
       ai_tagged: isAiTagged
     });
+    S = result.state;
     closeModal(); render();
   }catch(e){ $('#err').textContent = e.message; }
 };
