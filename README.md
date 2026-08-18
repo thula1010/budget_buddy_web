@@ -14,6 +14,9 @@
 - Xác minh email bắt buộc khi tạo tài khoản, liên kết hết hạn sau 24 giờ.
 - Gửi cảnh báo đúng thời điểm danh mục vừa vượt ngân sách và báo cáo chi tiêu hàng tuần.
 - Người dùng tự bật/tắt email hoặc xóa vĩnh viễn tài khoản trong trang Cài đặt.
+- Chuyển đổi ngôn ngữ (Tiếng Việt / English) và đơn vị tiền (VND, USD, EUR, JPY) ngay trên thanh trên cùng của mọi trang.
+- AI Coach lưu lịch sử trò chuyện theo từng cuộc, mở lại/đổi tên/xóa bất cứ lúc nào.
+- Tự thêm, sửa và xóa tài khoản tiền (ngân hàng, ví điện tử, tiền mặt, thẻ tín dụng, tiết kiệm, đầu tư).
 
 ## Cài đặt
 
@@ -51,6 +54,41 @@ OPENAI_MODEL=gpt-5.6-luna
 Không có API key, ứng dụng vẫn hoạt động đầy đủ với bộ gợi ý tài chính cục bộ. Riêng OCR sẽ báo chưa cấu hình thay vì tạo dữ liệu hóa đơn giả.
 
 Ảnh OCR hỗ trợ JPG, PNG và WebP, tối đa 8 MB. Trên điện thoại, nút chọn ảnh có thể mở camera sau.
+
+## Ngôn ngữ và đơn vị tiền
+
+Widget ở góc trên bên phải mỗi trang cho phép đổi ngôn ngữ và đơn vị tiền ngay lập tức; trang **Cài đặt** có phiên bản đầy đủ với tên tiền tệ. Lựa chọn được lưu vào tài khoản (`user.language`, `user.currency`) nên theo bạn sang thiết bị khác, đồng thời lưu vào `localStorage` để trang hiển thị đúng ngay từ lần vẽ đầu tiên.
+
+Mọi số tiền **luôn được lưu trong database bằng VND**. Đổi đơn vị tiền chỉ đổi cách hiển thị và cách đọc số bạn nhập vào form, không ghi lại dữ liệu cũ — nhờ vậy sổ sách không bao giờ lệch. Khi bạn nhập `10` lúc đang chọn USD, ứng dụng lưu `254000` VND.
+
+Tỷ giá là hằng số trong mã nguồn, khai báo ở hai nơi phải khớp nhau:
+
+| Nơi khai báo | Dùng cho |
+|---|---|
+| `CURRENCY_RATES` trong [`app.py`](app.py) | Câu trả lời của AI Coach và email |
+| `CURRENCIES` trong [`static/js/bb-i18n.js`](static/js/bb-i18n.js) | Toàn bộ giao diện |
+
+Muốn đổi tỷ giá hoặc thêm một đơn vị tiền mới, sửa cả hai danh sách trên. Giá trị `rate` là "một đơn vị tiền đó bằng bao nhiêu VND".
+
+Chuỗi giao diện nằm trong từ điển `DICT` của `bb-i18n.js`. Thẻ HTML tĩnh dịch bằng thuộc tính `data-i18n="khóa"`; phần dựng bằng JavaScript gọi `BB.t('khóa')`. Thông báo lỗi từ server dịch qua bảng `UI_MESSAGES` trong `app.py`.
+
+## Lịch sử trò chuyện AI Coach
+
+Mỗi câu hỏi và câu trả lời được lưu vào hai bảng `chat_session` và `chat_message`, tách theo người dùng. Trang AI Coach có cột lịch sử bên trái để:
+
+- mở lại một cuộc trò chuyện cũ cùng toàn bộ tin nhắn;
+- bắt đầu cuộc trò chuyện mới (tiêu đề tự đặt theo câu hỏi đầu tiên);
+- đổi tên hoặc xóa từng cuộc, hoặc xóa sạch lịch sử.
+
+Khi có `OPENAI_API_KEY`, 12 tin nhắn gần nhất của cuộc trò chuyện được gửi kèm để AI hiểu ngữ cảnh câu hỏi tiếp theo. Mỗi tài khoản giữ tối đa 100 cuộc trò chuyện gần nhất; cuộc cũ hơn tự động được dọn. Xóa tài khoản sẽ xóa luôn toàn bộ lịch sử.
+
+## Quản lý tài khoản tiền
+
+Trong thẻ **Danh sách tài khoản** ở trang Tổng quan, mỗi tài khoản có ba nút: *Chỉnh số dư*, *Sửa* và *Xóa*; cuối danh sách là nút **+ Thêm tài khoản**.
+
+Sáu loại tài khoản được hỗ trợ: `cash`, `bank`, `ewallet`, `credit`, `savings`, `investment` (khai báo trong `ACCOUNT_TYPES` của `app.py`). Tên tài khoản không được trùng nhau trong cùng một người dùng, và mỗi người tối đa 30 tài khoản.
+
+Khi xóa một tài khoản còn giao dịch, ứng dụng bắt buộc chọn một tài khoản khác để nhận lịch sử. Số dư ban đầu cũng được cộng sang tài khoản đó nên **tổng số dư không đổi**. Mục tiêu đang liên kết sẽ trỏ sang tài khoản mới. Không thể xóa tài khoản cuối cùng.
 
 ## Email xác minh và thông báo bằng Gmail API
 
@@ -128,7 +166,10 @@ Bộ kiểm thử bao phủ:
 - cách ly dữ liệu giữa người dùng;
 - kiểm tra số dư không đủ;
 - AI fallback và lỗi cấu hình OCR;
-- chuyển đổi database phiên bản cũ.
+- chuyển đổi database phiên bản cũ;
+- lưu/từ chối tùy chọn ngôn ngữ và tiền tệ, và việc số tiền vẫn nằm nguyên bằng VND;
+- tạo, đổi tên, xóa cuộc trò chuyện và tính riêng tư của lịch sử chat;
+- thêm/sửa/xóa tài khoản tiền, chuyển giao dịch khi xóa và bảo toàn tổng số dư.
 
 ## Cấu hình
 

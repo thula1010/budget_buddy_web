@@ -229,20 +229,22 @@ tr.txn:hover .del{opacity:1}
   .sidebar{width:76px}.brand div,.nav button span.lbl,.profile div{display:none}
 }
 </style>
+<script>window.BB_PREFS = {language: "{{ user.language or 'vi' }}", currency: "{{ user.currency or 'VND' }}"};</script>
+<script src="{{ url_for('static', filename='js/bb-i18n.js') }}"></script>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span data-i18n="brand.tagline">&middot; Smart Finance</span></div>
     </div>
     <nav class="nav" id="nav">
-      <button data-tab="overview" onclick="window.location.href='/'">&#127968; <span class="lbl">Overview</span></button>
-      <button data-tab="transactions" class="active" onclick="window.location.href='/transactions'">&#8596;&#65039; <span class="lbl">Transactions</span></button>
-      <button data-tab="budgets" onclick="window.location.href='/budgets'">&#128202; <span class="lbl">Budgets</span><i class="dot" id="budDot" style="display:none"></i></button>
-      <button data-tab="goals" onclick="window.location.href='/goals'">&#127919; <span class="lbl">Goals</span></button>
-      <button data-tab="ai-coach" onclick="window.location.href='/ai-coach'">&#10024; <span class="lbl">AI Coach</span></button>
+      <button data-tab="overview" onclick="window.location.href='/'">&#127968; <span class="lbl" data-i18n="nav.overview">Overview</span></button>
+      <button data-tab="transactions" class="active" onclick="window.location.href='/transactions'">&#8596;&#65039; <span class="lbl" data-i18n="nav.transactions">Transactions</span></button>
+      <button data-tab="budgets" onclick="window.location.href='/budgets'">&#128202; <span class="lbl" data-i18n="nav.budgets">Budgets</span><i class="dot" id="budDot" style="display:none"></i></button>
+      <button data-tab="goals" onclick="window.location.href='/goals'">&#127919; <span class="lbl" data-i18n="nav.goals">Goals</span></button>
+      <button data-tab="ai-coach" onclick="window.location.href='/ai-coach'">&#10024; <span class="lbl" data-i18n="nav.coach">AI Coach</span></button>
     </nav>
     
     <div class="profile">
@@ -254,10 +256,10 @@ tr.txn:hover .del{opacity:1}
         </div>
       </div>
       
-      <a href="/settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
+      <a href="/settings" data-i18n-title="nav.settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"></path></svg>
       </a>
-      <a href="/logout" title="Đăng xuất" class="logout-btn">
+      <a href="/logout" data-i18n-title="nav.logout" title="Đăng xuất" class="logout-btn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
           <polyline points="16 17 21 12 16 7"></polyline>
@@ -268,10 +270,11 @@ tr.txn:hover .del{opacity:1}
   </aside>
   <main class="main">
     <header class="topbar">
-      <div><h2 id="pageTitle">Transactions</h2><p id="pageSub"></p></div>
+      <div><h2 id="pageTitle" data-i18n="page.transactions.title">Transactions</h2><p id="pageSub"></p></div>
       <div style="display:flex;gap:12px;align-items:center">
-        <div class="synced"><i class="pulse"></i> Synced</div>
-        <button class="btn" id="openModal">+ Add Transaction</button>
+        <div data-bb-switcher></div>
+        <div class="synced"><i class="pulse"></i> <span data-i18n="common.synced">Synced</span></div>
+        <button class="btn" id="openModal" data-i18n="txn.add">+ Add Transaction</button>
       </div>
     </header>
     <div class="content" id="view"></div>
@@ -281,16 +284,16 @@ tr.txn:hover .del{opacity:1}
 <!-- Modal Thêm Giao Dịch -->
 <div class="overlay" id="overlay">
   <div class="modal">
-    <h3>Add Transaction</h3>
+    <h3 id="txnModalTitle" data-i18n="txn.add_title">Add Transaction</h3>
 
     <div class="toggle">
-      <button id="tExp" class="on">Expense</button>
-      <button id="tInc">Income</button>
+      <button id="tExp" class="on" data-i18n="txn.expense">Expense</button>
+      <button id="tInc" data-i18n="txn.income">Income</button>
     </div>
 
     <!-- Khung Upload Hóa Đơn Dạng Drag & Drop Giống Ảnh 2 -->
     <div class="field">
-      <label>Hóa đơn đính kèm (Receipt)</label>
+      <label data-i18n="receipt.label">Hóa đơn đính kèm</label>
       <div class="dropzone" id="dropzone">
         <div class="dropzone-icon" id="dzIcon">🤖</div>
         <div class="dropzone-text-main" id="dzMain">Kéo thả hoặc click để tải hóa đơn</div>
@@ -299,18 +302,18 @@ tr.txn:hover .del{opacity:1}
       <input type="file" id="innerReceiptInput" accept="image/jpeg,image/png,image/webp" capture="environment" style="display:none">
     </div>
 
-    <div class="field"><label>Merchant / Mô tả</label><input id="fMerchant" placeholder="VD: Highlands Coffee"></div>
+    <div class="field"><label data-i18n="txn.merchant">Merchant</label><input id="fMerchant" data-i18n-placeholder="txn.merchant_hint" placeholder="VD: Highlands Coffee"></div>
     <div class="row2">
-      <div class="field"><label>Amount (&#8363;)</label><input id="fAmount" type="number" min="0" step="1000" placeholder="45000"></div>
-      <div class="field"><label>Date</label><input id="fDate" type="date"></div>
+      <div class="field"><label><span data-i18n="txn.amount">Amount</span> (<span class="bb-cur">&#8363;</span>)</label><input id="fAmount" type="number" min="0" step="1000" placeholder="45000"></div>
+      <div class="field"><label data-i18n="txn.date">Date</label><input id="fDate" type="date"></div>
     </div>
-    <div class="field"><label>Category</label><select id="fCat"></select></div>
-    <div class="field"><label>Paid via / Account</label><select id="fAcc"></select></div>
+    <div class="field"><label data-i18n="txn.category">Category</label><select id="fCat"></select></div>
+    <div class="field"><label data-i18n="txn.account">Paid via / Account</label><select id="fAcc"></select></div>
     <div class="preview" id="preview"></div>
     <div class="err" id="err"></div>
     <div class="row2">
-      <button class="btn ghost" id="cancelBtn">Cancel</button>
-      <button class="btn" id="saveBtn">Save Transaction</button>
+      <button class="btn ghost" id="cancelBtn" data-i18n="common.cancel">Cancel</button>
+      <button class="btn" id="saveBtn" data-i18n="txn.save">Save Transaction</button>
     </div>
   </div>
 </div>
@@ -434,15 +437,11 @@ let S = null, txnType = 'expense', search = '', selectedCat = 'all', startDate =
 let isAiTagged = 0;
 let editingId = null;
 
-const fmtVND = n => {
-  const a = Math.abs(n);
-  if (a >= 1e9) return (n/1e9).toFixed(1).replace('.0','') + 'B';
-  if (a >= 1e6) return (n/1e6).toFixed(1).replace('.0','') + 'M';
-  if (a >= 1e3) return Math.round(n/1e3) + 'K';
-  return String(n);
-};
-const money = n => fmtVND(n) + ' ₫';
-const full  = n => n.toLocaleString('vi-VN') + ' ₫';
+/* API luôn trả về VND; BB chỉ đổi cách hiển thị. */
+const fmtVND = n => BB.axis(n);
+const money  = n => BB.money(n);
+const full   = n => BB.full(n);
+const t      = (k, v) => BB.t(k, v);
 const dmy   = d => { if(!d) return ''; const p = d.split('-'); return (p[2]||'') + '/' + (p[1]||''); };
 const esc   = s => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -491,30 +490,32 @@ async function load(){
 
 function render(){
   if(!S) return;
-  $('#pageTitle').textContent = 'Transactions';
+  $('#pageTitle').textContent = t('page.transactions.title');
   const [periodYear, periodMonth] = S.period.split('-').map(Number);
   $('#pageSub').textContent = new Date(periodYear, periodMonth - 1, 1)
-    .toLocaleDateString('vi-VN', {month:'long', year:'numeric'}) + ' · Tất cả tài khoản đã đồng bộ';
+    .toLocaleDateString(BB.localeDate(), {month:'long', year:'numeric'}) + ' · ' + t('page.transactions.sub');
   $('#budDot').style.display = S.budgets.some(b => b.over > 0) ? 'block' : 'none';
   $('#view').innerHTML = vTxns();
+  BB.applyDom($('#view'));
+  document.querySelectorAll('.bb-cur').forEach(el => { el.textContent = BB.symbol(); });
   after();
 }
 
 function txnTable(list, delBtn){
-  if(!list.length) return '<p style="color:var(--muted);padding:20px 0;text-align:center">Chưa có giao dịch nào phù hợp.</p>';
-  return `<table><thead><tr><th>Merchant</th><th>Category</th><th>Account</th><th style="text-align:right">Amount</th>${delBtn?'<th></th>':''}</tr></thead><tbody>` +
+  if(!list.length) return `<p style="color:var(--muted);padding:20px 0;text-align:center">${t('txn.empty')}</p>`;
+  return `<table><thead><tr><th>${t('txn.col.merchant')}</th><th>${t('txn.col.category')}</th><th>${t('txn.col.account')}</th><th style="text-align:right">${t('txn.col.amount')}</th>${delBtn?'<th></th>':''}</tr></thead><tbody>` +
     list.map(t => `
       <tr class="txn">
         <td><div style="display:flex;align-items:center;gap:12px">
           <div class="tile" style="background:${t.bg}">${t.cat_icon}</div>
-          <div><b>${esc(t.merchant)}</b>${t.ai_tagged?'<span class="ai-badge">AI tagged</span>':''}
+          <div><b>${esc(t.merchant)}</b>${t.ai_tagged?`<span class="ai-badge">${BB.t('txn.ai_tagged')}</span>`:''}
           <small style="display:block;color:var(--muted)">${dmy(t.date)}</small></div></div></td>
         <td><span class="badge" style="background:${t.bg};color:${t.color}">${esc(t.category)}</span></td>
         <td style="color:var(--muted);font-weight:600">${esc(t.account)}</td>
         <td class="${t.amount>0?'amt-pos':'amt-neg'}">${t.amount>0?'+':'-'}${full(Math.abs(t.amount))}</td>
         ${delBtn?`<td style="white-space:nowrap;width:64px">
-          <button class="del" style="color:var(--accent)" onclick="editTxn(${t.id})" title="Sửa">&#9998;</button>
-          <button class="del" onclick="delTxn(${t.id})" title="Xoá">&times;</button></td>`:''}
+          <button class="del" style="color:var(--accent)" onclick="editTxn(${t.id})" title="${BB.t('common.edit')}">&#9998;</button>
+          <button class="del" onclick="delTxn(${t.id})" title="${BB.t('common.delete')}">&times;</button></td>`:''}
       </tr>`).join('') + '</tbody></table>';
 }
 
@@ -536,24 +537,24 @@ function vTxns(){
 
   const k = S.kpi;
   const cards = [
-    ['TOTAL INCOME','&#128184;','#D1FAE5','#059669','+'+money(k.income)],
-    ['TOTAL EXPENSES','&#128181;','#FEE2E2','#DC2626','-'+money(k.expense)],
-    ['NET THIS MONTH','&#128200;','#CCFBF1','#0D9488', money(k.income-k.expense)],
+    [t('kpi.total_income'),'&#128184;','#D1FAE5','#059669','+'+money(k.income)],
+    [t('kpi.total_expense'),'&#128181;','#FEE2E2','#DC2626','-'+money(k.expense)],
+    [t('kpi.net'),'&#128200;','#CCFBF1','#0D9488', money(k.income-k.expense)],
   ].map(c => `<div class="card" style="display:flex;gap:14px;align-items:center">
       <div class="tile" style="background:${c[2]}">${c[1]}</div>
       <div><h3>${c[0]}</h3><div style="font-size:24px;font-weight:800;color:${c[3]}">${c[4]}</div></div>
     </div>`).join('');
 
-  const catOptions = `<option value="all">Tất cả danh mục</option>` + 
+  const catOptions = `<option value="all">${t('txn.all_categories')}</option>` + 
     S.categories.map(c => `<option value="${c.id}" ${String(c.id)===String(selectedCat)?'selected':''}>${c.icon} ${esc(c.name)}</option>`).join('');
 
   return `<div class="grid g3">${cards}</div>
   <div class="filter-bar">
-    <input class="search" id="searchBox" placeholder="&#128269;  Search merchants, categories, accounts..." value="${esc(search)}">
+    <input class="search" id="searchBox" placeholder="${t('txn.search')}" value="${esc(search)}">
     <select class="filter-select" id="catSelect">${catOptions}</select>
-    <input type="date" class="filter-date" id="startDate" value="${startDate}" title="Từ ngày">
-    <input type="date" class="filter-date" id="endDate" value="${endDate}" title="Đến ngày">
-    <button class="btn ghost" onclick="exportCSV()">Export CSV</button>
+    <input type="date" class="filter-date" id="startDate" value="${startDate}" title="${t('txn.from_date')}">
+    <input type="date" class="filter-date" id="endDate" value="${endDate}" title="${t('txn.to_date')}">
+    <button class="btn ghost" onclick="exportCSV()">${t('txn.export')}</button>
   </div>
   <div class="card">${txnTable(list, true)}</div>`;
 }
@@ -578,14 +579,16 @@ function after(){
 }
 
 window.delTxn = async id => {
-  if(!confirm('Xoá giao dịch này? Số dư tài khoản sẽ được hoàn lại.')) return;
+  if(!confirm(t('txn.delete_confirm'))) return;
   const r = await fetch('/api/transactions/'+id, {method:'DELETE'});
   S = await r.json(); render();
 };
 
 window.exportCSV = () => {
-  const rows = [['Date','Merchant','Category','Account','Amount']].concat(
-    S.transactions.map(t => [t.date, t.merchant, t.category, t.account, t.amount]));
+  // Xuất theo đơn vị tiền đang chọn để khớp với những gì người dùng nhìn thấy.
+  const rows = [[t('txn.date'), t('txn.col.merchant'), t('txn.col.category'), t('txn.col.account'),
+                 t('txn.col.amount') + ' (' + BB.currency + ')']].concat(
+    S.transactions.map(x => [x.date, x.merchant, x.category, x.account, BB.inputValue(x.amount)]));
   const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'}));
@@ -595,14 +598,14 @@ window.exportCSV = () => {
 async function post(url, body){
   const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})});
   const d = await r.json();
-  if(!r.ok) throw new Error(d.error || 'Lỗi');
+  if(!r.ok) throw new Error(d.error || BB.t('common.error'));
   return d;
 }
 
 async function put(url, body){
   const r = await fetch(url, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})});
   const d = await r.json();
-  if(!r.ok) throw new Error(d.error || 'Lỗi');
+  if(!r.ok) throw new Error(d.error || BB.t('common.error'));
   return d;
 }
 
@@ -610,35 +613,37 @@ function fillSelects(){
   const cats = S.categories.filter(c => c.kind === txnType);
   $('#fCat').innerHTML = cats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join('');
   $('#fAcc').innerHTML = S.accounts.map(a => `<option value="${a.id}">${a.icon} ${esc(a.name)} — ${full(a.balance)}</option>`).join('');
+  $('#fAmount').step = BB.inputStep();
   updatePreview();
 }
 
 function updatePreview(){
   const acc = S.accounts.find(a => a.id == $('#fAcc').value);
-  const amt = parseInt($('#fAmount').value || 0, 10);
+  const amt = BB.toBase(Number($('#fAmount').value) || 0);
   if(!acc){ $('#preview').textContent = ''; return; }
   const after = acc.balance + (txnType === 'income' ? amt : -amt);
-  $('#preview').innerHTML = `Số dư <b>${esc(acc.name)}</b> sau giao dịch: ` +
+  $('#preview').innerHTML = t('txn.balance_after', {account: '<b>' + esc(acc.name) + '</b>'}) + ' ' +
     `<b style="color:${after < 0 ? '#DC2626' : '#059669'}">${full(after)}</b>` +
-    (after < 0 ? ' &nbsp;&#9888;&#65039; không đủ số dư' : '');
+    (after < 0 ? ' &nbsp;' + t('txn.insufficient') : '');
 }
 
 function resetDropzone(){
   $('#dzIcon').textContent = '🤖';
-  $('#dzMain').textContent = 'Kéo thả hoặc click để tải hóa đơn';
-  $('#dzSub').textContent = 'Tự động nhận diện thông tin bằng AI (JPG, PNG)';
+  $('#dzMain').textContent = t('receipt.drop');
+  $('#dzSub').textContent = t('receipt.hint');
 }
 
 function openModal(tx){
   editingId = tx ? tx.id : null;
   const heading = document.querySelector('.modal h3');
-  if(heading) heading.textContent = tx ? 'Sửa giao dịch' : 'Add Transaction';
+  if(heading) heading.textContent = t(tx ? 'txn.edit_title' : 'txn.add_title');
   const save = $('#saveBtn');
-  if(save) save.textContent = tx ? 'Lưu thay đổi' : 'Save Transaction';
+  if(save) save.textContent = t(tx ? 'txn.save_changes' : 'txn.save');
   isAiTagged = tx ? tx.ai_tagged : 0;
   $('#fDate').value = tx ? tx.date : (S.period + '-' + String(new Date().getDate()).padStart(2,'0'));
   $('#fMerchant').value = tx ? tx.merchant : '';
-  $('#fAmount').value = tx ? Math.abs(tx.amount) : '';
+  $('#fAmount').value = tx ? BB.inputValue(Math.abs(tx.amount)) : '';
+  $('#fAmount').step = BB.inputStep();
   $('#err').textContent = '';
   resetDropzone();
   setType(tx ? (tx.amount > 0 ? 'income' : 'expense') : (txnType || 'expense'));
@@ -694,12 +699,12 @@ innerReceiptInput.onchange = e => {
 
 async function processReceipt(file) {
   if (!file.type.startsWith('image/')) {
-    $('#err').textContent = 'Vui lòng chọn file hình ảnh hóa đơn.';
+    $('#err').textContent = t('receipt.pick_image');
     return;
   }
 
   $('#dzIcon').innerHTML = '<span class="spinner"></span>';
-  $('#dzMain').textContent = 'Đang quét dữ liệu hóa đơn...';
+  $('#dzMain').textContent = t('receipt.scanning');
   $('#dzSub').textContent = file.name;
 
   const formData = new FormData();
@@ -716,14 +721,14 @@ async function processReceipt(file) {
         resData = await response.json();
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Không thể đọc hóa đơn');
+        throw new Error(errorData.error || t('common.error'));
       }
     } catch(err) {
       throw err;
       console.warn("Backend OCR API chưa sẵn sàng, dùng AI bóc tách giả lập");
     }
 
-    if(!resData) throw new Error('Không nhận được dữ liệu OCR');
+    if(!resData) throw new Error(t('common.error'));
     if(false) {
       await new Promise(r => setTimeout(r, 1000));
       resData = {
@@ -736,7 +741,7 @@ async function processReceipt(file) {
 
     // Điền dữ liệu vào form
     if(resData.merchant) $('#fMerchant').value = resData.merchant;
-    if(resData.amount) $('#fAmount').value = resData.amount;
+    if(resData.amount) $('#fAmount').value = BB.inputValue(resData.amount);
     if(resData.date) $('#fDate').value = resData.date;
     
     setType('expense');
@@ -747,11 +752,11 @@ async function processReceipt(file) {
 
     isAiTagged = 1;
     $('#dzIcon').textContent = '✅';
-    $('#dzMain').textContent = 'Đã trích xuất xong từ hóa đơn!';
+    $('#dzMain').textContent = t('receipt.done');
     $('#dzSub').textContent = file.name;
     updatePreview();
   } catch(err) {
-    $('#err').textContent = 'Lỗi khi đọc hóa đơn: ' + err.message;
+    $('#err').textContent = t('receipt.failed', {error: err.message});
     resetDropzone();
   } finally {
     innerReceiptInput.value = '';
@@ -771,7 +776,7 @@ $('#saveBtn').onclick = async () => {
   try{
     const payload = {
       merchant: $('#fMerchant').value,
-      amount:   $('#fAmount').value,
+      amount:   Math.round(BB.toBase(Number($('#fAmount').value) || 0)),
       date:     $('#fDate').value,
       type:     txnType,
       category_id: parseInt($('#fCat').value, 10),
@@ -785,6 +790,9 @@ $('#saveBtn').onclick = async () => {
     closeModal(); render();
   }catch(e){ $('#err').textContent = e.message; }
 };
+
+/* Vẽ lại toàn bộ khi người dùng đổi ngôn ngữ hoặc đơn vị tiền. */
+BB.onChange(() => { if(S) render(); });
 
 load();
 </script>

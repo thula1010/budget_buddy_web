@@ -209,20 +209,22 @@ canvas{max-width:100%}
   .sidebar{width:76px}.brand div,.nav a span.lbl,.profile div,.logout-btn{display:none}
 }
 </style>
+<script>window.BB_PREFS = {language: "{{ user.language or 'vi' }}", currency: "{{ user.currency or 'VND' }}"};</script>
+<script src="{{ url_for('static', filename='js/bb-i18n.js') }}"></script>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span data-i18n="brand.tagline">&middot; Smart Finance</span></div>
     </div>
     <nav class="nav">
-      <a href="/">&#127968; <span class="lbl">Overview</span></a>
-      <a href="transactions">&#8596;&#65039; <span class="lbl">Transactions</span></a>
-      <a href="budgets" class="active">&#128202; <span class="lbl">Budgets</span><i class="dot" id="budDot" style="display:none"></i></a>
-      <a href="goals">&#127919; <span class="lbl">Goals</span></a>
-      <a href="ai-coach">&#10024; <span class="lbl">AI Coach</span></a>
+      <a href="/">&#127968; <span class="lbl" data-i18n="nav.overview">Overview</span></a>
+      <a href="transactions">&#8596;&#65039; <span class="lbl" data-i18n="nav.transactions">Transactions</span></a>
+      <a href="budgets" class="active">&#128202; <span class="lbl" data-i18n="nav.budgets">Budgets</span><i class="dot" id="budDot" style="display:none"></i></a>
+      <a href="goals">&#127919; <span class="lbl" data-i18n="nav.goals">Goals</span></a>
+      <a href="ai-coach">&#10024; <span class="lbl" data-i18n="nav.coach">AI Coach</span></a>
     </nav>
     <div class="profile">
       <div style="display: flex; gap: 12px; align-items: center; min-width: 0;">
@@ -232,10 +234,10 @@ canvas{max-width:100%}
           <small id="uplan" style="color: var(--muted); font-size: 12px;">Student</small>
         </div>
       </div>
-      <a href="/settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
+      <a href="/settings" data-i18n-title="nav.settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"></path></svg>
       </a>
-      <a href="/logout" title="Đăng xuất" class="logout-btn">
+      <a href="/logout" data-i18n-title="nav.logout" title="Đăng xuất" class="logout-btn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
           <polyline points="16 17 21 12 16 7"></polyline>
@@ -246,10 +248,11 @@ canvas{max-width:100%}
   </aside>
   <main class="main">
     <header class="topbar">
-      <div><h2>Budgets</h2><p id="topbarPeriod">All accounts synced</p></div>
+      <div><h2 data-i18n="page.budgets.title">Budgets</h2><p id="topbarPeriod"></p></div>
       <div style="display:flex;gap:12px;align-items:center">
-        <div class="synced"><i class="pulse"></i> Synced</div>
-        <button class="btn" id="openModal">+ Add Transaction</button>
+        <div data-bb-switcher></div>
+        <div class="synced"><i class="pulse"></i> <span data-i18n="common.synced">Synced</span></div>
+        <button class="btn" id="openModal" data-i18n="txn.add">+ Add Transaction</button>
       </div>
     </header>
     <div class="content" id="view"></div>
@@ -259,15 +262,15 @@ canvas{max-width:100%}
 <!-- Modal: Add Transaction -->
 <div class="overlay" id="overlay">
   <div class="modal">
-    <h3>Add Transaction</h3>
+    <h3 data-i18n="txn.add_title">Add Transaction</h3>
     <div class="toggle">
-      <button id="tExp" class="on">Expense</button>
-      <button id="tInc">Income</button>
+      <button id="tExp" class="on" data-i18n="txn.expense">Expense</button>
+      <button id="tInc" data-i18n="txn.income">Income</button>
     </div>
     
     <!-- UI Upload Hóa Đơn Đồng Bộ -->
     <div class="field">
-      <label>Hóa đơn đính kèm (Receipt)</label>
+      <label data-i18n="receipt.label">Hóa đơn đính kèm</label>
       <div class="upload-zone" id="uploadZone">
         <input type="file" id="fReceipt" accept="image/jpeg,image/png,image/webp" capture="environment">
         <span class="upload-icon">&#129302;</span>
@@ -280,22 +283,22 @@ canvas{max-width:100%}
           <div class="filename" id="receiptFileName">receipt.jpg</div>
           <div class="filesize" id="receiptFileSize">0 KB</div>
         </div>
-        <button type="button" class="remove-btn" id="removeReceiptBtn" title="Xóa ảnh">&times;</button>
+        <button type="button" class="remove-btn" id="removeReceiptBtn" data-i18n-title="receipt.remove" title="Xóa ảnh">&times;</button>
       </div>
     </div>
 
-    <div class="field"><label>Merchant / Description</label><input id="fMerchant" placeholder="e.g. Highlands Coffee"></div>
+    <div class="field"><label data-i18n="txn.merchant">Merchant</label><input id="fMerchant" data-i18n-placeholder="txn.merchant_hint" placeholder="e.g. Highlands Coffee"></div>
     <div class="row2">
-      <div class="field"><label>Amount (&#8363;)</label><input id="fAmount" type="number" min="0" step="1000" placeholder="45000"></div>
-      <div class="field"><label>Date</label><input id="fDate" type="date"></div>
+      <div class="field"><label><span data-i18n="txn.amount">Amount</span> (<span class="bb-cur">&#8363;</span>)</label><input id="fAmount" type="number" min="0" step="1000" placeholder="45000"></div>
+      <div class="field"><label data-i18n="txn.date">Date</label><input id="fDate" type="date"></div>
     </div>
-    <div class="field"><label>Category</label><select id="fCat"></select></div>
-    <div class="field"><label>Paid via / Account</label><select id="fAcc"></select></div>
+    <div class="field"><label data-i18n="txn.category">Category</label><select id="fCat"></select></div>
+    <div class="field"><label data-i18n="txn.account">Paid via / Account</label><select id="fAcc"></select></div>
     <div class="preview" id="preview"></div>
     <div class="err" id="err"></div>
     <div class="row2">
-      <button class="btn ghost" id="cancelBtn">Cancel</button>
-      <button class="btn" id="saveBtn">Save Transaction</button>
+      <button class="btn ghost" id="cancelBtn" data-i18n="common.cancel">Cancel</button>
+      <button class="btn" id="saveBtn" data-i18n="txn.save">Save Transaction</button>
     </div>
   </div>
 </div>
@@ -316,26 +319,26 @@ canvas{max-width:100%}
         You have exceeded your limit for category.
       </p>
     </div>
-    <button class="btn" style="width:100%;margin-top:15px;background:var(--expense)" onclick="closeEmailModal()">Acknowledge</button>
+    <button class="btn" style="width:100%;margin-top:15px;background:var(--expense)" onclick="closeEmailModal()" data-i18n="common.close">Acknowledge</button>
   </div>
 </div>
 
 <!-- Modal: Edit Budget Limit -->
 <div class="overlay" id="budgetOverlay">
   <div class="modal" style="width:420px">
-    <h3>Chỉnh hạn mức ngân sách</h3>
+    <h3 data-i18n="budget.edit_title">Chỉnh hạn mức ngân sách</h3>
     <div class="field">
-      <label>Danh mục</label>
+      <label data-i18n="budget.category">Danh mục</label>
       <div id="budgetCategoryName" style="font-weight:800"></div>
     </div>
     <div class="field">
-      <label>Hạn mức (₫)</label>
+      <label><span data-i18n="budget.limit">Hạn mức</span> (<span class="bb-cur">₫</span>)</label>
       <input id="budgetLimitAmount" type="number" min="1" step="10000" inputmode="numeric">
     </div>
     <div class="err" id="budgetErr"></div>
     <div class="row2">
-      <button class="btn ghost" id="cancelBudgetBtn">Hủy</button>
-      <button class="btn" id="saveBudgetBtn">Lưu hạn mức</button>
+      <button class="btn ghost" id="cancelBudgetBtn" data-i18n="common.cancel">Hủy</button>
+      <button class="btn" id="saveBudgetBtn" data-i18n="budget.save">Lưu hạn mức</button>
     </div>
   </div>
 </div>
@@ -349,7 +352,7 @@ const getCurrentPeriod = () => {
 const getPeriodLabel = (periodStr) => {
   const [year, month] = periodStr.split('-');
   const date = new Date(year, month - 1);
-  return date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  return date.toLocaleString(BB.localeDate(), { month: 'long', year: 'numeric' });
 };
 /* ===== Mock Storage & Data ===== */
 const currentPeriod = getCurrentPeriod();
@@ -486,9 +489,11 @@ window.fetch = nativeFetch;
 /* ===== UI Script ===== */
 const $ = s => document.querySelector(s);
 let S = null, txnType = 'expense', charts = [], currentReceiptBase64 = null;
-const fmtVND = n => { const a = Math.abs(n); return a >= 1e6 ? (n/1e6).toFixed(1).replace('.0','') + 'M' : Math.round(n/1e3) + 'K'; };
-const money = n => fmtVND(n) + ' ₫';
-const full  = n => n.toLocaleString('en-US') + ' ₫';
+/* API luôn trả về VND; BB chỉ đổi cách hiển thị. */
+const fmtVND = n => BB.axis(n);
+const money  = n => BB.money(n);
+const full   = n => BB.full(n);
+const t      = (k, v) => BB.t(k, v);
 const esc   = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 async function load(){
@@ -533,7 +538,7 @@ function setupReceiptUpload(){
 
   function handleFile(file){
     if(!file.type.startsWith('image/')) {
-      alert('Vui lòng chọn file hình ảnh!');
+      alert(t('receipt.pick_image'));
       return;
     }
     const reader = new FileReader();
@@ -552,20 +557,20 @@ function setupReceiptUpload(){
   }
 
   async function scanReceipt(file){
-    $('#err').textContent = 'Đang đọc hóa đơn bằng AI...';
+    $('#err').textContent = t('receipt.scanning');
     const formData = new FormData();
     formData.append('receipt', file);
     try {
       const response = await nativeFetch('/api/scan-receipt', {method:'POST', body:formData});
       const data = await response.json();
-      if(!response.ok) throw new Error(data.error || 'Không thể đọc hóa đơn');
+      if(!response.ok) throw new Error(data.error || t('common.error'));
       $('#fMerchant').value = data.merchant || '';
-      $('#fAmount').value = data.amount || '';
+      $('#fAmount').value = data.amount ? BB.inputValue(data.amount) : '';
       $('#fDate').value = data.date || $('#fDate').value;
       setType('expense');
       const category = S.categories.find(c => c.name === data.category);
       if(category) $('#fCat').value = category.id;
-      $('#err').textContent = 'Đã điền thông tin từ hóa đơn. Vui lòng kiểm tra trước khi lưu.';
+      $('#err').textContent = t('receipt.done');
       updatePreview();
     } catch(error) {
       $('#err').textContent = error.message;
@@ -584,17 +589,17 @@ function setupReceiptUpload(){
 function render(){
   if(!S) return;
   charts.forEach(c => c.destroy()); charts = [];
-  $('#uname').textContent = S.user.name; $('#uplan').textContent = S.user.plan; $('#avatar').textContent = S.user.initials;
-  
-  $('#topbarPeriod').innerHTML = `${getPeriodLabel(S.period)} &middot; All accounts synced`;
+  $('#uname').textContent = S.user.name; $('#uplan').textContent = t('common.plan'); $('#avatar').textContent = S.user.initials;
+
+  $('#topbarPeriod').innerHTML = `${getPeriodLabel(S.period)} &middot; ${t('page.budgets.sub')}`;
   $('#budDot').style.display = S.budgets.some(b => b.over > 0) ? 'block' : 'none';
   
   const total = S.budgets.reduce((s,b) => s + b.limit_vnd, 0);
   const spent = S.budgets.reduce((s,b) => s + b.spent, 0);
   const cards = [
-    ['TOTAL BUDGET','&#128179;','#DBEAFE','#1D4ED8', money(total)],
-    ['TOTAL SPENT','&#128184;','#FEF3C7','#B45309', money(spent)],
-    ['REMAINING','&#128994;','#D1FAE5','#059669', money(total-spent)],
+    [t('kpi.total_budget'),'&#128179;','#DBEAFE','#1D4ED8', money(total)],
+    [t('kpi.total_spent'),'&#128184;','#FEF3C7','#B45309', money(spent)],
+    [t('kpi.remaining'),'&#128994;','#D1FAE5','#059669', money(total-spent)],
   ].map(c => `<div class="card" style="display:flex;gap:14px;align-items:center">
       <div class="tile" style="background:${c[2]}">${c[1]}</div>
       <div><h3>${c[0]}</h3><div style="font-size:24px;font-weight:800;color:${c[3]}">${c[4]}</div></div>
@@ -606,13 +611,13 @@ function render(){
       <div class="r1">
         <div class="tile" style="background:${b.bg}">${b.icon}</div>
         <b>${esc(b.category)}</b>
-        <span class="nums">${fmtVND(b.spent)} / ${fmtVND(b.limit_vnd)}</span>
+        <span class="nums">${fmtVND(b.spent)} / ${money(b.limit_vnd)}</span>
         <span class="badge" style="background:${b.over>0?'#FEE2E2':'#F1F5F9'};color:${b.over>0?'#DC2626':col}">
-          ${b.over>0?'OVER':b.pct+'%'}</span>
-        <button class="btn ghost sm" style="margin-left:10px" onclick="openBudgetModal(${b.category_id})">Sửa</button>
+          ${b.over>0?t('budget.over'):b.pct+'%'}</span>
+        <button class="btn ghost sm" style="margin-left:10px" onclick="openBudgetModal(${b.category_id})">${t('common.edit')}</button>
       </div>
       <div class="bar"><i style="width:${Math.min(100,b.pct)}%;background:${col}"></i></div>
-      ${b.over>0?`<div class="over-txt">Over limit by ${full(b.over)}</div>`:''}
+      ${b.over>0?`<div class="over-txt">${t('budget.over_by', {amount: full(b.over)})}</div>`:''}
     </div>`;
   }).join('');
   
@@ -620,29 +625,33 @@ function render(){
   
   $('#view').innerHTML = `<div class="grid g3">${cards}</div>
   <div class="grid g2">
-    <div class="card"><h3>Category limits &middot; ${getPeriodLabel(S.period)}</h3>${bars}</div>
+    <div class="card"><h3>${t('budget.limits')} &middot; ${getPeriodLabel(S.period)}</h3>${bars}</div>
     <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="card"><h3>Weekly Spend</h3><canvas id="bars" height="200"></canvas></div>
+      <div class="card"><h3>${t('budget.weekly')}</h3><canvas id="bars" height="200"></canvas></div>
       <div class="card" style="background:#F5F3FF;border-color:#DDD6FE">
         <div style="display:flex;gap:12px;align-items:flex-start">
           <div class="tile" style="background:#EDE9FE">&#10024;</div>
-          <div><h3 style="color:#7C3AED">AI Insight</h3>
+          <div><h3 style="color:#7C3AED">${t('budget.ai_insight')}</h3>
           <p style="font-size:14px;line-height:1.6;margin-top:8px">
-          ${worst && worst.spent > 0 ? `<b>${esc(worst.category)}</b> is currently at <b>${worst.pct}%</b> of budget.
-          ${worst.over>0 ? 'You have exceeded the limit — consider pausing spending in this category until next month.' : 'Everything is under control, keep it up!'}` : 'No significant spending recorded yet this month.'}
+          ${worst && worst.spent > 0
+            ? t(worst.over > 0 ? 'budget.ai_over' : 'budget.ai_ok', {category: esc(worst.category), pct: worst.pct})
+            : t('budget.ai_none')}
           </p></div>
         </div>
       </div>
     </div>
   </div>`;
-  
+
+  BB.applyDom($('#view'));
+  document.querySelectorAll('.bb-cur').forEach(el => { el.textContent = BB.symbol(); });
+
   const barsCanvas = $('#bars');
   if(barsCanvas){
     const w = S.charts.weekly; const mx = Math.max(...w);
     charts.push(new Chart(barsCanvas, {
       type:'bar', 
       data:{
-        labels:['Wk 1','Wk 2','Wk 3','Wk 4'], 
+        labels:[1,2,3,4].map(n => t('budget.week', {n})), 
         datasets:[{
           data:w, 
           backgroundColor:w.map(v => (v > 0 && v === mx) ? '#F87171' : '#2DA89C'), 
@@ -651,7 +660,7 @@ function render(){
         }]
       },
       options:{
-        plugins:{legend:{display:false}}, 
+        plugins:{legend:{display:false}, tooltip:{callbacks:{label: c => full(c.raw)}}},
         scales:{
           y:{beginAtZero:true,grid:{color:'#F1F5F9'},ticks:{callback:v=>fmtVND(v),color:'#94A3B8'}}, 
           x:{grid:{display:false},ticks:{color:'#94A3B8'}}
@@ -681,7 +690,8 @@ function openBudgetModal(categoryId){
   if(!budget) return;
   editingBudgetCategoryId = categoryId;
   $('#budgetCategoryName').textContent = `${budget.icon} ${budget.category}`;
-  $('#budgetLimitAmount').value = Math.round(budget.limit_vnd);
+  $('#budgetLimitAmount').value = BB.inputValue(budget.limit_vnd);
+  $('#budgetLimitAmount').step = BB.inputStep();
   $('#budgetErr').textContent = '';
   $('#budgetOverlay').classList.add('open');
   $('#budgetLimitAmount').focus();
@@ -696,14 +706,17 @@ function setType(t){
   const cats = S.categories.filter(c => c.kind === txnType);
   $('#fCat').innerHTML = cats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join('');
   $('#fAcc').innerHTML = S.accounts.map(a => `<option value="${a.id}">${a.icon} ${esc(a.name)} — ${full(a.balance)}</option>`).join('');
+  $('#fAmount').step = BB.inputStep();
   updatePreview();
 }
 function updatePreview(){
   const acc = S.accounts.find(a => a.id == $('#fAcc').value);
-  const amt = parseInt($('#fAmount').value || 0, 10);
+  const amt = BB.toBase(Number($('#fAmount').value) || 0);
   if(!acc){ $('#preview').textContent = ''; return; }
   const after = acc.balance + (txnType === 'income' ? amt : -amt);
-  $('#preview').innerHTML = `Balance of <b>${esc(acc.name)}</b> after transaction: <b style="color:${after < 0 ? '#DC2626' : '#059669'}">${full(after)}</b>`;
+  $('#preview').innerHTML = t('txn.balance_after', {account: '<b>' + esc(acc.name) + '</b>'}) +
+    ` <b style="color:${after < 0 ? '#DC2626' : '#059669'}">${full(after)}</b>` +
+    (after < 0 ? ' &nbsp;' + t('txn.insufficient') : '');
 }
 
 $('#openModal').onclick = openModal;
@@ -718,11 +731,12 @@ $('#cancelBudgetBtn').onclick = closeBudgetModal;
 $('#budgetOverlay').onclick = e => { if(e.target === $('#budgetOverlay')) closeBudgetModal(); };
 $('#budgetLimitAmount').onkeydown = e => { if(e.key === 'Enter') $('#saveBudgetBtn').click(); };
 $('#saveBudgetBtn').onclick = async () => {
-  const limit_vnd = Number($('#budgetLimitAmount').value);
-  if(!Number.isFinite(limit_vnd) || limit_vnd <= 0){
-    $('#budgetErr').textContent = 'Vui lòng nhập hạn mức hợp lệ, lớn hơn 0 ₫.';
+  const typedLimit = Number($('#budgetLimitAmount').value);
+  if(!Number.isFinite(typedLimit) || typedLimit <= 0){
+    $('#budgetErr').textContent = t('budget.invalid');
     return;
   }
+  const limit_vnd = Math.round(BB.toBase(typedLimit));
   const button = $('#saveBudgetBtn');
   button.disabled = true;
   $('#budgetErr').textContent = '';
@@ -733,7 +747,7 @@ $('#saveBudgetBtn').onclick = async () => {
       body: JSON.stringify({category_id: editingBudgetCategoryId, limit_vnd, period: S.period})
     });
     const data = await r.json();
-    if(!r.ok) throw new Error(data.error || 'Không thể cập nhật hạn mức.');
+    if(!r.ok) throw new Error(data.error || t('common.error'));
     S = data.state;
     closeBudgetModal();
     render();
@@ -750,7 +764,7 @@ $('#saveBtn').onclick = async () => {
       headers:{'Content-Type':'application/json'}, 
       body:JSON.stringify({
         merchant:$('#fMerchant').value, 
-        amount:$('#fAmount').value, 
+        amount:Math.round(BB.toBase(Number($('#fAmount').value) || 0)), 
         date:$('#fDate').value, 
         type:txnType, 
         category_id:parseInt($('#fCat').value,10), 
@@ -758,18 +772,21 @@ $('#saveBtn').onclick = async () => {
       })
     });
     const res = await r.json();
-    if(!r.ok) throw new Error(res.error || 'Không thể lưu giao dịch');
+    if(!r.ok) throw new Error(res.error || t('common.error'));
     S = res.state; 
     closeModal(); 
     render();
     // Trigger Email Notification Modal if budget is exceeded
     if(res.breachAlert) {
       const b = res.breachAlert;
-      $('#emailText').innerHTML = `Your spending in <b>${esc(b.category)}</b> has reached <b>${full(b.spent)}</b>, exceeding your budget limit of <b>${full(b.limit)}</b> by <b>${full(b.over)}</b>.`;
+      $('#emailText').innerHTML = t('budget.alert_email', {category: esc(b.category), spent: full(b.spent), limit: full(b.limit), over: full(b.over)});
       $('#emailOverlay').classList.add('open');
     }
   }catch(e){ $('#err').textContent = e.message; }
 };
+/* Vẽ lại toàn bộ khi người dùng đổi ngôn ngữ hoặc đơn vị tiền. */
+BB.onChange(() => { if(S) render(); });
+
 load();
 </script>
 </body>

@@ -51,6 +51,7 @@
     .form-box { display: none; }
     .form-box.active { display: block; }
   </style>
+<script src="{{ url_for('static', filename='js/bb-i18n.js') }}"></script>
 </head>
 <body>
 
@@ -59,7 +60,7 @@
       <div class="logo">💰</div>
       <div>
         <h1 style="font-size: 18px; font-weight: 800;">Budget Buddy</h1>
-        <span style="font-size: 12px; color: var(--muted);">Smart Finance</span>
+        <span style="font-size: 12px; color: var(--muted);" data-i18n="brand.tagline">Smart Finance</span>
       </div>
     </div>
 
@@ -72,43 +73,45 @@
       {% endif %}
     {% endwith %}
 
+    <div style="display:flex;justify-content:center;margin-bottom:16px"><div data-bb-switcher></div></div>
+
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('login')">Đăng nhập</button>
-      <button class="tab-btn" onclick="switchTab('signup')">Đăng ký</button>
+      <button class="tab-btn active" onclick="switchTab('login')" data-i18n="auth.login">Đăng nhập</button>
+      <button class="tab-btn" onclick="switchTab('signup')" data-i18n="auth.signup">Đăng ký</button>
     </div>
 
     <!-- FORM LOGIN -->
     <form id="loginForm" class="form-box active" action="/api/login" method="POST">
       <div class="field">
-        <label>Username</label>
-        <input type="text" name="username" required placeholder="Nhập username">
+        <label data-i18n="auth.username">Username</label>
+        <input type="text" name="username" required data-i18n-placeholder="auth.username_hint" placeholder="Nhập username">
       </div>
       <div class="field">
-        <label>Mật khẩu</label>
+        <label data-i18n="auth.password">Mật khẩu</label>
         <input type="password" name="password" required placeholder="••••••••">
       </div>
-      <button type="submit" class="btn">Đăng nhập</button>
+      <button type="submit" class="btn" data-i18n="auth.login">Đăng nhập</button>
     </form>
 
     <!-- FORM SIGNUP -->
     <form id="signupForm" class="form-box" action="/api/signup" method="POST">
       <div class="field">
-        <label>Username</label>
-        <input type="text" name="username" required placeholder="Nhập username">
+        <label data-i18n="auth.username">Username</label>
+        <input type="text" name="username" required data-i18n-placeholder="auth.username_hint" placeholder="Nhập username">
       </div>
       <div class="field">
-        <label>Email</label>
+        <label data-i18n="auth.email">Email</label>
         <input type="email" name="email" required placeholder="name@example.com">
       </div>
       <div class="field">
-        <label>Mật khẩu</label>
+        <label data-i18n="auth.password">Mật khẩu</label>
         <input type="password" name="password" required placeholder="••••••••">
       </div>
       <div class="field">
-        <label>Nhập lại mật khẩu</label>
+        <label data-i18n="auth.confirm">Nhập lại mật khẩu</label>
         <input type="password" name="confirm_password" required placeholder="••••••••">
       </div>
-      <button type="submit" class="btn">Tạo tài khoản</button>
+      <button type="submit" class="btn" data-i18n="auth.create">Tạo tài khoản</button>
     </form>
   </div>
 

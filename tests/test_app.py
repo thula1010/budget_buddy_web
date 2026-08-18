@@ -101,7 +101,8 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
 
         coach = self.client.post("/api/coach", json={"message": "Số dư của tôi?"}).get_json()
         self.assertEqual(coach["source"], "local")
-        self.assertIn("2,800,000", coach["reply"])
+        # Tiếng Việt dùng dấu chấm ngăn cách hàng nghìn, khớp với giao diện.
+        self.assertIn("2.800.000", coach["reply"])
 
         ocr = self.client.post(
             "/api/scan-receipt",

@@ -88,7 +88,48 @@ body{
   box-shadow:var(--shadow);padding:22px;
 }
 .card h3{font-size:12px;letter-spacing:1.1px;color:var(--muted);font-weight:700;text-transform:uppercase}
-.chat-wrap{display:grid;grid-template-columns:1.35fr .65fr;gap:16px;align-items:start}
+.chat-wrap{display:grid;grid-template-columns:260px minmax(0,1.25fr) .65fr;gap:16px;align-items:start}
+
+/* ---------- Lịch sử trò chuyện ---------- */
+.history{padding:16px;display:flex;flex-direction:column;gap:10px;max-height:560px}
+.history-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.history-head h3{white-space:nowrap}
+.new-chat{
+  width:100%;border:1px dashed var(--accent);background:#F0FDFA;color:var(--accent);
+  border-radius:11px;padding:11px 12px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer;transition:.16s;
+}
+.new-chat:hover{background:var(--accent);color:#fff}
+.history-list{overflow-y:auto;display:flex;flex-direction:column;gap:6px;flex:1;min-height:60px}
+.hist-item{
+  display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--card);
+  border-radius:11px;padding:9px 10px;cursor:pointer;transition:.14s;
+}
+.hist-item:hover{border-color:var(--accent);background:#F0FDFA}
+.hist-item.active{border-color:var(--accent);background:#F0FDFA;box-shadow:inset 3px 0 0 var(--accent)}
+.hist-item .txt{flex:1;min-width:0}
+.hist-item .title{
+  font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;
+}
+.hist-item .meta{font-size:11px;color:var(--muted);font-weight:500}
+.hist-actions{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:.14s}
+.hist-item:hover .hist-actions,.hist-item.active .hist-actions{opacity:1}
+.hist-btn{
+  border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;
+  padding:3px 5px;border-radius:6px;line-height:1;
+}
+.hist-btn:hover{background:#E2E8F0;color:var(--text)}
+.hist-btn.del:hover{background:#FEE2E2;color:var(--expense)}
+.history-empty{font-size:12.5px;color:var(--muted);text-align:center;padding:18px 4px;line-height:1.5}
+.clear-all{
+  border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;font-weight:600;
+  cursor:pointer;text-decoration:underline;padding:2px;
+}
+.clear-all:hover{color:var(--expense)}
+.msg.typing .bubble{color:var(--muted);font-style:italic}
+.src-badge{
+  display:inline-block;margin-left:8px;font-size:10px;font-weight:700;letter-spacing:.4px;
+  color:var(--muted);text-transform:uppercase;vertical-align:middle;
+}
 .chat{display:flex;flex-direction:column;height:560px;padding:0;overflow:hidden}
 .msgs{flex:1;overflow-y:auto;padding:22px;background:var(--bg);display:flex;flex-direction:column;gap:14px}
 .msg{display:flex;gap:10px;max-width:80%}
@@ -109,25 +150,33 @@ body{
 }
 .qp:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
 
+@media(max-width:1200px){
+  .chat-wrap{grid-template-columns:230px minmax(0,1fr)}
+  .chat-wrap > .side-col{grid-column:1 / -1}
+}
 @media(max-width:1000px){
   .chat-wrap{grid-template-columns:1fr}
+  .chat-wrap > .side-col{grid-column:auto}
+  .history{max-height:280px}
   .sidebar{width:76px}.brand div,.nav a span.lbl,.profile div,.logout-btn{display:none}
 }
 </style>
+<script>window.BB_PREFS = {language: "{{ user.language or 'vi' }}", currency: "{{ user.currency or 'VND' }}"};</script>
+<script src="{{ url_for('static', filename='js/bb-i18n.js') }}"></script>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span data-i18n="brand.tagline">&middot; Smart Finance</span></div>
     </div>
     <nav class="nav">
-      <a href="/">&#127968; <span class="lbl">Overview</span></a>
-      <a href="transactions">&#8596;&#65039; <span class="lbl">Transactions</span></a>
-      <a href="budgets">&#128202; <span class="lbl">Budgets</span><i class="dot" id="budDot" style="display:none"></i></a>
-      <a href="goals">&#127919; <span class="lbl">Goals</span></a>
-      <a href="ai-coach" class="active">&#10024; <span class="lbl">AI Coach</span></a>
+      <a href="/">&#127968; <span class="lbl" data-i18n="nav.overview">Overview</span></a>
+      <a href="transactions">&#8596;&#65039; <span class="lbl" data-i18n="nav.transactions">Transactions</span></a>
+      <a href="budgets">&#128202; <span class="lbl" data-i18n="nav.budgets">Budgets</span><i class="dot" id="budDot" style="display:none"></i></a>
+      <a href="goals">&#127919; <span class="lbl" data-i18n="nav.goals">Goals</span></a>
+      <a href="ai-coach" class="active">&#10024; <span class="lbl" data-i18n="nav.coach">AI Coach</span></a>
     </nav>
     <div class="profile">
       <div style="display: flex; gap: 12px; align-items: center; min-width: 0;">
@@ -137,12 +186,12 @@ body{
           <small id="uplan" style="color: var(--muted); font-size: 12px;">Student</small>
         </div>
       </div>
-      <a href="/settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
+      <a href="/settings" data-i18n-title="nav.settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"></path></svg>
       </a>
-      <a href="/logout" title="Đăng xuất" class="logout-btn">
+      <a href="/logout" data-i18n-title="nav.logout" title="Đăng xuất" class="logout-btn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 2 0 0 1 2-2h4"></path>
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
           <polyline points="16 17 21 12 16 7"></polyline>
           <line x1="21" y1="12" x2="9" y2="12"></line>
         </svg>
@@ -151,9 +200,10 @@ body{
   </aside>
   <main class="main">
     <header class="topbar">
-      <div><h2>AI Coach</h2><p>Personal Smart Assistant</p></div>
+      <div><h2 data-i18n="page.coach.title">AI Coach</h2><p data-i18n="page.coach.sub">Personal Smart Assistant</p></div>
       <div style="display:flex;gap:12px;align-items:center">
-        <div class="synced"><i class="pulse"></i> Synced</div>
+        <div data-bb-switcher></div>
+        <div class="synced"><i class="pulse"></i> <span data-i18n="common.synced">Synced</span></div>
       </div>
     </header>
     <div class="content" id="view"></div>
@@ -161,153 +211,227 @@ body{
 </div>
 
 <script>
-/* ===== Shared Database Core (Preserve SEED & Merge User Txns) ===== */
-const USERNAME = "{{ user.username }}";
-const USER_TXN_KEY = 'budget_buddy_txns_' + USERNAME;
-
-const SEED = {
-  "user": {"initials": "{{ user.username[0].upper() }}", "name": "{{ user.username }}", "plan": "Student"},
-  "notifications": [
-    {"ago": "3h ago", "id": 1, "kind": "ai", "text": "\"Highlands Coffee\" auto-tagged -> Food & Drinks"},
-    {"ago": "1d ago", "id": 2, "kind": "done", "text": "Emergency Fund goal completed! Congratulations"},
-    {"ago": "2d ago", "id": 3, "kind": "warn", "text": "Transport budget at 87% - approaching limit"}
-  ],
-  "accounts": [{"balance": 520000, "name": "Personal Wallet"}, {"balance": 1450000, "name": "MB Bank"}],
-  "goals": [{"name": "MacBook Air M3", "saved": 18200000, "target": 28000000}],
-  "budgets": [{"category": "Food & Drinks", "limit_vnd": 600000, "over": 0, "pct": 80, "spent": 480000}],
-  "transactions": []
-};
-
-function getUserCustomTransactions() {
-  const saved = localStorage.getItem(USER_TXN_KEY);
-  if (saved) {
-    try { return JSON.parse(saved); } catch(e) { console.error(e); }
-  }
-  return [];
-}
-
-function getMergedDB() {
-  const userTxns = getUserCustomTransactions();
-  // Giữ nguyên SEED và hợp nhất thêm giao dịch mới của user
-  const mergedTxns = [...SEED.transactions, ...userTxns];
-  
-  // Tính toán lại số dư tài khoản từ SEED + User Txns
-  const mergedAccounts = SEED.accounts.map(acc => {
-    const delta = userTxns
-      .filter(t => t.account === acc.name)
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
-    return { ...acc, balance: acc.balance + delta };
-  });
-
-  return { ...SEED, accounts: mergedAccounts, transactions: mergedTxns };
-}
-
-function computeKPI(db) {
-  const accounts = db.accounts || [];
-  const totalBalance = accounts.reduce((s, a) => s + (a.balance || 0), 0);
-  const txns = db.transactions || [];
-  const income = txns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
-  const expense = -txns.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
-  const savings_rate = income > 0 ? Math.round(((income - expense) / income) * 100) : 0;
-  return { balance: totalBalance, income, expense, savings_rate };
-}
-
-function fmtd(n){ return n.toLocaleString('vi-VN') + 'đ'; }
-
-function coach(q){
-  q = (q || '').toLowerCase();
-  const db = getMergedDB();
-  const k = computeKPI(db);
-  const has = arr => arr.some(w => q.indexOf(w) >= 0);
-  if(has(['goal','mục tiêu','muc tieu','macbook','tiết kiệm','tiet kiem'])){
-    return 'Bạn còn ' + fmtd(9800000) + ' nữa là đạt mục tiêu "MacBook Air M3". Với tốc độ tiết kiệm hiện tại, bạn cần khoảng 4 tháng nữa.';
-  }
-  if(has(['budget','ngân sách','ngan sach','vượt','vuot'])){
-    return 'Tất cả ngân sách đang nằm trong tầm kiểm soát ngoại trừ Giải trí đã vượt giới hạn.';
-  }
-  if(has(['account','tài khoản','tai khoan','số dư','so du'])){
-    const accList = db.accounts.map(a => `${a.name}: ${fmtd(a.balance)}`).join(', ');
-    return 'Số dư hiện tại — ' + accList + '. Tổng: ' + fmtd(k.balance) + '.';
-  }
-  return 'Tháng này bạn thu ' + fmtd(k.income) + ', chi ' + fmtd(k.expense) + ', tỷ lệ tiết kiệm ' + k.savings_rate + '%.';
-}
-
-function reply(obj){ return Promise.resolve({ok: true, json: () => Promise.resolve(obj)}); }
-
-const nativeFetch = window.fetch;
-window.fetch = function(url, opts){
-  opts = opts || {}; const body = opts.body ? JSON.parse(opts.body) : {};
-  if(url === '/api/state') {
-    const db = getMergedDB();
-    return reply({ ...db, kpi: computeKPI(db) });
-  }
-  if(url === '/api/coach') return reply({reply: coach(body.message)});
-  return reply({});
-};
-// AI Coach consumes the same server-side state as every other page.
-window.fetch = nativeFetch;
-
-/* ===== UI Script ===== */
+/* ============================================================
+   AI Coach — trò chuyện có lưu lịch sử.
+   Mọi tin nhắn được lưu trong DB theo từng cuộc trò chuyện
+   (ChatSession/ChatMessage), nên đóng trình duyệt vẫn còn.
+   ============================================================ */
 const $ = s => document.querySelector(s);
-let S = null;
-const chat = [
-  {from:'ai', text:'Chào {{ user.username }}! Mình đã xem qua chi tiêu của bạn. Có vài điểm đáng chú ý đấy.'},
-  {from:'me', text:'Vậy mình nên tiết kiệm thế nào để mua MacBook nhanh hơn?'}
-];
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const t = (k, v) => BB.t(k, v);
+
+let S = null;                 // trạng thái tài chính từ /api/state
+let sessions = [];            // danh sách cuộc trò chuyện
+let activeSessionId = null;   // null = cuộc trò chuyện mới chưa lưu
+let chat = [];                // tin nhắn của cuộc đang mở
+let sending = false;
+
+async function api(url, options){
+  const response = await fetch(url, options);
+  const data = await response.json().catch(() => ({}));
+  if(!response.ok) throw new Error(data.error || t('common.error'));
+  return data;
+}
 
 async function load(){
-  const r = await fetch('/api/state'); S = await r.json(); render();
+  S = await api('/api/state');
+  await loadSessions();
+  if(sessions.length){
+    await openSession(sessions[0].id);
+  } else {
+    startNewChat(false);
+  }
 }
 
-window.addEventListener('storage', (e) => {
-  if (e.key === USER_TXN_KEY) load();
-});
+async function loadSessions(){
+  const data = await api('/api/chat/sessions');
+  sessions = data.sessions || [];
+}
+
+function greeting(){
+  return {from:'ai', text: t('coach.greeting', {name: S ? S.user.name : ''}), source:'local'};
+}
+
+function startNewChat(focus){
+  activeSessionId = null;
+  chat = [greeting()];
+  render();
+  if(focus !== false){ const box = $('#chatInput'); if(box) box.focus(); }
+}
+
+async function openSession(id){
+  const data = await api('/api/chat/sessions/' + id);
+  activeSessionId = data.session.id;
+  chat = data.messages.length ? data.messages.map(m => ({from:m.from, text:m.text, source:m.source})) : [greeting()];
+  render();
+}
+
+function relativeTime(iso){
+  const then = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+  const mins = Math.round((Date.now() - then.getTime()) / 60000);
+  if(mins < 1) return t('time.now');
+  if(mins < 60) return t('time.minutes', {n: mins});
+  const hours = Math.round(mins / 60);
+  if(hours < 24) return t('time.hours', {n: hours});
+  return then.toLocaleDateString(BB.localeDate(), {day:'2-digit', month:'2-digit'});
+}
+
+function historyHtml(){
+  const items = sessions.length ? sessions.map(item => `
+    <div class="hist-item ${item.id === activeSessionId ? 'active' : ''}" onclick="pickSession(${item.id})">
+      <div class="txt">
+        <span class="title">${esc(item.title)}</span>
+        <span class="meta">${t('coach.msg_count', {n: item.message_count})} &middot; ${relativeTime(item.updated_at)}</span>
+      </div>
+      <div class="hist-actions">
+        <button class="hist-btn" title="${t('coach.rename')}" onclick="event.stopPropagation();renameSession(${item.id})">&#9998;</button>
+        <button class="hist-btn del" title="${t('common.delete')}" onclick="event.stopPropagation();removeSession(${item.id})">&times;</button>
+      </div>
+    </div>`).join('') : `<div class="history-empty">${t('coach.no_history')}</div>`;
+
+  return `<div class="card history side-col">
+    <div class="history-head">
+      <h3>${t('coach.history')}</h3>
+      ${sessions.length ? `<button class="clear-all" onclick="clearHistory()">${t('coach.clear_all')}</button>` : ''}
+    </div>
+    <button class="new-chat" onclick="startNewChat()">${t('coach.new_chat')}</button>
+    <div class="history-list">${items}</div>
+  </div>`;
+}
 
 function render(){
   if(!S) return;
-  $('#uname').textContent = S.user.name; $('#uplan').textContent = S.user.plan; $('#avatar').textContent = S.user.initials;
-  
+  $('#uname').textContent = S.user.name;
+  $('#uplan').textContent = t('common.plan');
+  $('#avatar').textContent = S.user.initials;
+
   const NC = {warn:['#F59E0B','#FFFBEB'], ai:['#A78BFA','#F5F3FF'], done:['#34D399','#ECFDF5']};
-  const notes = (S.notifications || []).map(n => `
-    <div class="note-item" style="--c:${NC[n.kind][0]};--b:${NC[n.kind][1]}">
-      ${esc(n.text)}<small>${esc(n.ago)}</small></div>`).join('');
-      
-  const prompts = ['📊 Tháng này tôi tiêu thế nào?','🎯 Mục tiêu nào gần đạt nhất?','💰 Ngân sách nào sắp vượt?','🏦 Số dư các tài khoản?']
-    .map(p => `<button class="qp" onclick="quick(this)">${p}</button>`).join('');
-    
+  const notes = (S.notifications || []).map(n => {
+    const colors = NC[n.kind] || NC.ai;
+    return `<div class="note-item" style="--c:${colors[0]};--b:${colors[1]}">
+      ${esc(n.text)}<small>${esc(n.ago)}</small></div>`;
+  }).join('');
+
+  const prompts = ['coach.prompt1','coach.prompt2','coach.prompt3','coach.prompt4']
+    .map(key => `<button class="qp" onclick="quick(this)">${t(key)}</button>`).join('');
+
   const msgs = chat.map(m => `
-    <div class="msg ${m.from==='me'?'me':'ai'}">
-      <div class="mini">${m.from==='me'?S.user.initials:'✨'}</div>
-      <div class="bubble">${esc(m.text)}</div></div>`).join('');
+    <div class="msg ${m.from === 'me' ? 'me' : 'ai'} ${m.typing ? 'typing' : ''}">
+      <div class="mini">${m.from === 'me' ? esc(S.user.initials) : '&#10024;'}</div>
+      <div class="bubble">${esc(m.text)}</div>
+    </div>`).join('');
+
   $('#view').innerHTML = `<div class="chat-wrap">
+    ${historyHtml()}
     <div class="card chat">
       <div class="msgs" id="msgs">${msgs}</div>
       <div class="composer">
-        <input id="chatInput" placeholder="Hỏi bất cứ điều gì về tài chính của bạn...">
-        <button class="btn" onclick="send()">Send &uarr;</button>
+        <input id="chatInput" placeholder="${t('coach.placeholder')}" ${sending ? 'disabled' : ''}>
+        <button class="btn" onclick="send()" ${sending ? 'disabled' : ''}>${t('coach.send')} &uarr;</button>
       </div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="card"><h3>Notifications</h3><div style="margin-top:14px">${notes}</div></div>
-      <div class="card"><h3>Quick Prompts</h3><div style="margin-top:14px">${prompts}</div></div>
+    <div class="side-col" style="display:flex;flex-direction:column;gap:16px">
+      <div class="card"><h3>${t('coach.notifications')}</h3><div style="margin-top:14px">${notes}</div></div>
+      <div class="card"><h3>${t('coach.quick_prompts')}</h3><div style="margin-top:14px">${prompts}</div></div>
     </div>
   </div>`;
-  
+
+  BB.applyDom($('#view'));
   const m = $('#msgs'); if(m) m.scrollTop = m.scrollHeight;
 }
-window.quick = b => { $('#chatInput').value = b.textContent.trim(); send(); };
-window.send = async () => {
-  const inp = $('#chatInput'); const text = inp.value.trim(); if(!text) return;
-  chat.push({from:'me', text}); inp.value = ''; render();
-  const r = await fetch('/api/coach', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:text})});
-  const d = await r.json();
-  chat.push({from:'ai', text:d.reply}); render();
+
+/* ---------- hành động trên lịch sử ---------- */
+window.pickSession = async id => {
+  if(id === activeSessionId) return;
+  try { await openSession(id); } catch(e) { alert(e.message); }
 };
+
+window.renameSession = async id => {
+  const current = sessions.find(x => x.id === id);
+  const title = prompt(t('coach.rename_prompt'), current ? current.title : '');
+  if(title === null) return;
+  if(!title.trim()) return;
+  try {
+    await api('/api/chat/sessions/' + id, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({title: title.trim()})
+    });
+    await loadSessions();
+    render();
+  } catch(e) { alert(e.message); }
+};
+
+window.removeSession = async id => {
+  const current = sessions.find(x => x.id === id);
+  if(!confirm(t('coach.delete_confirm', {title: current ? current.title : ''}))) return;
+  try {
+    await api('/api/chat/sessions/' + id, {method:'DELETE'});
+    await loadSessions();
+    if(activeSessionId === id){
+      if(sessions.length) await openSession(sessions[0].id);
+      else startNewChat(false);
+    } else {
+      render();
+    }
+  } catch(e) { alert(e.message); }
+};
+
+window.clearHistory = async () => {
+  if(!confirm(t('coach.clear_confirm'))) return;
+  try {
+    await api('/api/chat/sessions', {method:'DELETE'});
+    sessions = [];
+    startNewChat(false);
+  } catch(e) { alert(e.message); }
+};
+
+window.startNewChat = startNewChat;
+window.quick = b => { const box = $('#chatInput'); box.value = b.textContent.trim(); send(); };
+
+window.send = async () => {
+  if(sending) return;
+  const input = $('#chatInput');
+  const text = input.value.trim();
+  if(!text) return;
+
+  chat.push({from:'me', text});
+  chat.push({from:'ai', text: t('coach.thinking'), typing: true});
+  input.value = '';
+  sending = true;
+  render();
+
+  try {
+    const payload = {message: text};
+    if(activeSessionId) payload.session_id = activeSessionId;
+    const data = await api('/api/coach', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    chat.pop();  // bỏ dòng "đang phân tích"
+    chat.push({from:'ai', text: data.reply, source: data.source});
+    activeSessionId = data.session.id;
+    await loadSessions();
+  } catch(e) {
+    chat.pop();
+    chat.push({from:'ai', text: e.message, source:'local'});
+  } finally {
+    sending = false;
+    render();
+    const box = $('#chatInput'); if(box) box.focus();
+  }
+};
+
 document.addEventListener('keydown', e => {
   if(e.key === 'Enter' && document.activeElement && document.activeElement.id === 'chatInput') send();
 });
-load();
+
+/* Đổi ngôn ngữ / tiền tệ: vẽ lại giao diện (tin nhắn cũ giữ nguyên ngôn ngữ lúc hỏi). */
+BB.onChange(() => { if(S) render(); });
+
+load().catch(e => {
+  document.getElementById('view').innerHTML =
+    '<div class="card"><p style="color:var(--expense)">' + esc(e.message) + '</p></div>';
+});
 </script>
 </body>
 </html>
