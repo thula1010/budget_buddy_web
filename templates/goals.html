@@ -230,6 +230,10 @@ body{
       </div>
     </div>
     <div class="field">
+      <label>Tài khoản riêng (tiền nạp sẽ trừ từ đây)</label>
+      <select id="gAccount"><option value="">Không liên kết tài khoản</option></select>
+    </div>
+    <div class="field">
       <label>Icon Emoji</label>
       <input id="gIcon" placeholder="🎯" value="🎯">
       <div class="emoji-selector">
@@ -261,6 +265,9 @@ body{
         <button class="quick-btn" onclick="setDepAmount(500000)">+500K</button>
         <button class="quick-btn" onclick="setDepAmount(1000000)">+1M</button>
         <button class="quick-btn" onclick="setDepAmount(2000000)">+2M</button>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:8px">
+        Nhập số âm (VD: -100000) nếu lỡ nạp nhầm và muốn rút bớt.
       </div>
     </div>
     <div class="err" id="depErr"></div>
@@ -386,7 +393,7 @@ function render(){
           ${isDone ? '<span class="badge" style="background:#D1FAE5;color:#059669">COMPLETE &#10004;</span>' : `<span class="pct">${pct}%</span>`}
         </div>
         <div class="nm">${esc(g.name)}</div>
-        <div class="dl">Deadline: ${esc(g.deadline)}</div>
+        <div class="dl">Deadline: ${esc(g.deadline)}${g.account ? ' &middot; Ví: ' + esc(g.account) : ''}</div>
         <div class="bar"><i style="width:${pct}%;background:${g.accent};box-shadow:0 0 10px ${g.accent}66"></i></div>
         <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:13px">
           <span style="color:var(--muted)">Saved: <b style="color:var(--text)">${money(g.saved)}</b></span>
@@ -397,7 +404,7 @@ function render(){
         <div class="note" style="background:${g.accent}14;color:${g.accent}">
           ${isDone ? '🎉 Goal achieved! Great work, ' + esc(S.user.name) + '.' : `<b>${money(remain)}</b> to go &middot; ~${months} months`}
         </div>
-        ${isDone ? '' : `<button class="btn ghost sm" style="width:100%;margin-top:12px" onclick="openDepositModal(${g.id}, '${esc(g.name)}')">+ Deposit Funds</button>`}
+        <button class="btn ghost sm" style="width:100%;margin-top:12px" onclick="openDepositModal(${g.id}, '${esc(g.name)}')">${isDone ? 'Sửa số tiền đã nạp' : '+ Deposit Funds'}</button>
       </div>
     </div>`;
   }).join('');
@@ -413,7 +420,9 @@ function render(){
 /* ===== Deposit Modal Handler ===== */
 function openDepositModal(id, name){
   currentDepositGoalId = id;
-  $('#depTitle').textContent = `Deposit to: ${name}`;
+  const g = S.goals.find(x => x.id === id);
+  const hint = g && g.account ? ` (sẽ trừ từ ${g.account})` : '';
+  $('#depTitle').textContent = `Deposit to: ${name}${hint}`;
   $('#depAmount').value = '';
   $('#depErr').textContent = '';
   $('#depositOverlay').classList.add('open');
@@ -452,6 +461,8 @@ function selectEmoji(char){ $('#gIcon').value = char; }
 function openModal(){
   $('#gName').value = ''; $('#gTarget').value = ''; $('#gSaved').value = '';
   $('#gDeadline').value = ''; $('#gIcon').value = '🎯'; $('#err').textContent = '';
+  $('#gAccount').innerHTML = '<option value="">Không liên kết tài khoản</option>' +
+    S.accounts.map(a => `<option value="${a.id}">${a.icon} ${esc(a.name)}</option>`).join('');
   $('#overlay').classList.add('open'); $('#gName').focus();
 }
 function closeModal(){ $('#overlay').classList.remove('open'); }
@@ -473,7 +484,8 @@ $('#saveGoalBtn').onclick = async () => {
         saved: $('#gSaved').value || 0,
         deadline: $('#gDeadline').value,
         icon: $('#gIcon').value,
-        accent: $('#gColor').value
+        accent: $('#gColor').value,
+        account_id: $('#gAccount').value || null
       })
     });
     const res = await r.json();

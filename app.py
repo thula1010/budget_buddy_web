@@ -40,9 +40,14 @@ except Exception:
 load_dotenv()
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+_database_url = os.environ.get(
     "DATABASE_URL", f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"
 )
+if _database_url.startswith("postgres://"):
+    # Render (and legacy Heroku) hand out postgres://, but SQLAlchemy 2.x only
+    # accepts the postgresql:// scheme.
+    _database_url = "postgresql://" + _database_url[len("postgres://"):]
+app.config["SQLALCHEMY_DATABASE_URI"] = _database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 app.config["EMAIL_VERIFICATION_REQUIRED"] = os.environ.get(
@@ -113,6 +118,7 @@ class Budget(db.Model):
 class Goal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    account_id = db.Column(db.Integer, db.ForeignKey("account.id"), nullable=True)
     name = db.Column(db.String(100), nullable=False)
     target = db.Column(db.Float, nullable=False)
     current_saved = db.Column(db.Float, nullable=False, default=0)
@@ -172,6 +178,19 @@ def upgrade_user_schema():
                 connection.exec_driver_sql(
                     f'ALTER TABLE "user" ADD COLUMN "{column}" {definition}'
                 )
+
+
+def upgrade_goal_schema():
+    """Add the account link column without invalidating goals created before this release."""
+    schema = inspect(db.engine)
+    if "goal" not in schema.get_table_names():
+        return
+    existing = {column["name"] for column in schema.get_columns("goal")}
+    if "account_id" not in existing:
+        with db.engine.begin() as connection:
+            connection.exec_driver_sql(
+                'ALTER TABLE "goal" ADD COLUMN "account_id" INTEGER REFERENCES account(id)'
+            )
 
 
 def prepare_legacy_tables():
@@ -414,11 +433,14 @@ def build_state(user, period=None):
         name = category_by_id[tx.category_id].name
         by_category[name] = by_category.get(name, 0) - tx.amount
 
+    account_by_id = {a.id: a for a in accounts}
     goals = [
         {
             "id": g.id, "name": g.name, "target": float(g.target),
             "saved": float(g.current_saved), "current_saved": float(g.current_saved),
             "icon": g.icon, "accent": g.accent, "deadline": g.deadline,
+            "account_id": g.account_id,
+            "account": account_by_id[g.account_id].name if g.account_id in account_by_id else None,
         }
         for g in Goal.query.filter_by(user_id=user.id).order_by(Goal.id).all()
     ]
@@ -848,6 +870,53 @@ def add_transaction():
     return jsonify({"success": True, "id": tx.id, "state": state, "breachAlert": breach}), 201
 
 
+@app.route("/api/transactions/<int:transaction_id>", methods=["PUT"])
+@login_required
+def edit_transaction(transaction_id):
+    tx = Transaction.query.filter_by(id=transaction_id, user_id=current_user.id).first()
+    if not tx:
+        return json_error("Không tìm thấy giao dịch.", 404)
+
+    data = request.get_json(silent=True) or {}
+    merchant = str(data.get("merchant") or data.get("note") or "").strip()
+    try:
+        amount = round(abs(float(data.get("amount", 0))))
+        account_id = int(data.get("account_id"))
+        category_id = int(data.get("category_id"))
+    except (TypeError, ValueError):
+        return json_error("Dữ liệu giao dịch không hợp lệ.")
+    tx_type = data.get("type")
+    tx_date = str(data.get("date") or tx.date)
+    if not merchant:
+        return json_error("Vui lòng nhập tên giao dịch.")
+    if amount <= 0:
+        return json_error("Số tiền phải lớn hơn 0.")
+    try:
+        datetime.strptime(tx_date, "%Y-%m-%d")
+    except ValueError:
+        return json_error("Ngày giao dịch không hợp lệ.")
+    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first()
+    category = db.session.get(Category, category_id)
+    if not account or not category or tx_type not in ("income", "expense") or category.kind != tx_type:
+        return json_error("Tài khoản, danh mục hoặc loại giao dịch không hợp lệ.")
+    signed_amount = amount if tx_type == "income" else -amount
+
+    old_account = db.session.get(Account, tx.account_id)
+    if account.id == old_account.id:
+        if account_balance(account) - tx.amount + signed_amount < 0:
+            return json_error(f"Số dư {account.name} không đủ.")
+    else:
+        if account_balance(old_account) - tx.amount < 0:
+            return json_error(f"Số dư {old_account.name} không đủ sau khi chuyển giao dịch.")
+        if account_balance(account) + signed_amount < 0:
+            return json_error(f"Số dư {account.name} không đủ.")
+
+    tx.merchant, tx.amount = merchant, signed_amount
+    tx.account_id, tx.category_id, tx.date = account.id, category.id, tx_date
+    db.session.commit()
+    return jsonify({"success": True, "state": build_state(current_user, tx_date[:7])})
+
+
 @app.route("/api/transactions/<int:transaction_id>", methods=["DELETE"])
 @login_required
 def delete_transaction(transaction_id):
@@ -960,6 +1029,30 @@ def scan_receipt():
         return json_error("Không thể đọc hóa đơn này. Hãy chụp rõ toàn bộ hóa đơn và thử lại.", 422)
 
 
+@app.route("/api/budgets", methods=["POST"])
+@login_required
+def upsert_budget():
+    data = request.get_json(silent=True) or {}
+    try:
+        category_id = int(data.get("category_id"))
+        limit_vnd = round(float(data.get("limit_vnd", data.get("amount_limit", 0))))
+    except (TypeError, ValueError):
+        return json_error("Dữ liệu ngân sách không hợp lệ.")
+    if limit_vnd <= 0:
+        return json_error("Hạn mức phải lớn hơn 0.")
+    category = db.session.get(Category, category_id)
+    if not category or category.kind != "expense":
+        return json_error("Danh mục không hợp lệ.")
+
+    budget = Budget.query.filter_by(user_id=current_user.id, category_id=category_id).first()
+    if budget:
+        budget.limit_vnd = limit_vnd
+    else:
+        db.session.add(Budget(user_id=current_user.id, category_id=category_id, limit_vnd=limit_vnd))
+    db.session.commit()
+    return jsonify({"success": True, "state": build_state(current_user, data.get("period"))})
+
+
 @app.route("/api/goals", methods=["GET"])
 @login_required
 def get_goals():
@@ -978,8 +1071,13 @@ def add_goal():
     name = str(data.get("name", "")).strip()
     if not name or target <= 0 or saved < 0:
         return json_error("Thông tin mục tiêu không hợp lệ.")
+
+    account_id = data.get("account_id")
+    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first() if account_id else None
+
     goal = Goal(
         user_id=current_user.id, name=name, target=target, current_saved=saved,
+        account_id=account.id if account else None,
         deadline=str(data.get("deadline", "")).strip()[:30],
         icon=str(data.get("icon", "🎯"))[:10],
         accent=str(data.get("accent", "#0D9488"))[:10],
@@ -999,12 +1097,24 @@ def deposit_goal(goal_id):
         amount = float((request.get_json(silent=True) or {}).get("amount", 0))
     except (TypeError, ValueError):
         return json_error("Số tiền không hợp lệ.")
-    if amount <= 0:
-        return json_error("Số tiền phải lớn hơn 0.")
+    if amount == 0:
+        return json_error("Số tiền phải khác 0.")
+
+    account = db.session.get(Account, goal.account_id) if goal.account_id else None
+    if account:
+        if amount > 0 and account_balance(account) < amount:
+            return json_error(f"Số dư {account.name} không đủ.")
+        if amount < 0 and goal.current_saved + amount < 0:
+            return json_error("Số tiền rút vượt quá số đã nạp.")
+        account.opening_balance -= amount
+    elif amount < 0 and goal.current_saved + amount < 0:
+        return json_error("Số tiền rút vượt quá số đã nạp.")
+
     goal.current_saved += amount
     db.session.commit()
     if (
-        send_goal_plan_email
+        amount > 0
+        and send_goal_plan_email
         and current_user.email
         and current_user.email_verified
         and email_delivery_configured()
@@ -1117,6 +1227,7 @@ def send_weekly_reports_command(force):
 
 with app.app_context():
     upgrade_user_schema()
+    upgrade_goal_schema()
     legacy_tables = prepare_legacy_tables()
     db.create_all()
     seed_categories()

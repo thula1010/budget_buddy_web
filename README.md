@@ -91,9 +91,19 @@ GMAIL_REFRESH_TOKEN=xxxx
 
 Không đưa Client Secret hoặc Refresh Token lên GitHub. Gmail API được ưu tiên khi có đủ bốn biến `GMAIL_*`/`EMAIL_USER`; Resend và SMTP chỉ còn là fallback tương thích. Nếu OAuth Audience đang ở trạng thái **Testing**, quyền và Refresh Token của test user sẽ hết hạn sau 7 ngày; chuyển Publishing status sang **Production** để tránh giới hạn này cho cấu hình lâu dài.
 
-Để gửi báo cáo tuần trên Render, tạo **Cron Job** dùng cùng repository và các biến môi trường với Web Service:
+## Triển khai lên Render
 
-Web Service và Cron Job bắt buộc dùng cùng biến `DATABASE_URL` trỏ tới một PostgreSQL dùng chung. Không dùng SQLite mặc định cho bản triển khai này vì hai dịch vụ không chia sẻ cùng tệp database.
+Cách nhanh nhất: push repo này lên GitHub, vào Render Dashboard chọn **New +** → **Blueprint**, trỏ tới repo — Render sẽ đọc sẵn [`render.yaml`](render.yaml) và tự tạo Web Service + Cron Job + PostgreSQL dùng chung. Sau khi tạo xong, vào tab **Environment** của từng service để điền các biến đánh dấu "sync: false" trong file (API key, Gmail OAuth, `APP_BASE_URL` là domain `.onrender.com` thật của bạn...).
+
+Nếu tạo thủ công qua dashboard thay vì Blueprint, cấu hình như sau:
+
+**Web Service:**
+```text
+Build Command: pip install -r requirements.txt
+Start Command: gunicorn --bind 0.0.0.0:$PORT app:app
+```
+
+**Cron Job** (báo cáo tuần), dùng cùng repository và các biến môi trường với Web Service:
 
 ```text
 Build Command: pip install -r requirements.txt
@@ -102,6 +112,8 @@ Schedule: 0 1 * * MON
 ```
 
 Lịch trên chạy lúc 01:00 UTC mỗi thứ Hai, tức 08:00 tại Việt Nam. Lệnh chỉ gửi cho tài khoản đã xác minh, đang bật báo cáo tuần, và không gửi lặp lại cùng một tuần.
+
+Web Service và Cron Job bắt buộc dùng cùng biến `DATABASE_URL` trỏ tới một PostgreSQL dùng chung. Không dùng SQLite mặc định cho bản triển khai này vì hai dịch vụ không chia sẻ cùng tệp database. Render cấp `DATABASE_URL` dạng `postgres://`; ứng dụng đã tự chuyển thành `postgresql://` để tương thích SQLAlchemy, không cần chỉnh tay.
 
 ## Kiểm thử
 

@@ -320,6 +320,26 @@ canvas{max-width:100%}
   </div>
 </div>
 
+<!-- Modal: Edit Budget Limit -->
+<div class="overlay" id="budgetOverlay">
+  <div class="modal" style="width:420px">
+    <h3>Chỉnh hạn mức ngân sách</h3>
+    <div class="field">
+      <label>Danh mục</label>
+      <div id="budgetCategoryName" style="font-weight:800"></div>
+    </div>
+    <div class="field">
+      <label>Hạn mức (₫)</label>
+      <input id="budgetLimitAmount" type="number" min="1" step="10000" inputmode="numeric">
+    </div>
+    <div class="err" id="budgetErr"></div>
+    <div class="row2">
+      <button class="btn ghost" id="cancelBudgetBtn">Hủy</button>
+      <button class="btn" id="saveBudgetBtn">Lưu hạn mức</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ===== Helpers for Dynamic Time ===== */
 const getCurrentPeriod = () => {
@@ -589,6 +609,7 @@ function render(){
         <span class="nums">${fmtVND(b.spent)} / ${fmtVND(b.limit_vnd)}</span>
         <span class="badge" style="background:${b.over>0?'#FEE2E2':'#F1F5F9'};color:${b.over>0?'#DC2626':col}">
           ${b.over>0?'OVER':b.pct+'%'}</span>
+        <button class="btn ghost sm" style="margin-left:10px" onclick="openBudgetModal(${b.category_id})">Sửa</button>
       </div>
       <div class="bar"><i style="width:${Math.min(100,b.pct)}%;background:${col}"></i></div>
       ${b.over>0?`<div class="over-txt">Over limit by ${full(b.over)}</div>`:''}
@@ -654,6 +675,22 @@ function openModal(){
 }
 function closeModal(){ $('#overlay').classList.remove('open'); }
 function closeEmailModal(){ $('#emailOverlay').classList.remove('open'); }
+let editingBudgetCategoryId = null;
+function openBudgetModal(categoryId){
+  const budget = S.budgets.find(b => b.category_id === categoryId);
+  if(!budget) return;
+  editingBudgetCategoryId = categoryId;
+  $('#budgetCategoryName').textContent = `${budget.icon} ${budget.category}`;
+  $('#budgetLimitAmount').value = Math.round(budget.limit_vnd);
+  $('#budgetErr').textContent = '';
+  $('#budgetOverlay').classList.add('open');
+  $('#budgetLimitAmount').focus();
+  $('#budgetLimitAmount').select();
+}
+function closeBudgetModal(){
+  $('#budgetOverlay').classList.remove('open');
+  editingBudgetCategoryId = null;
+}
 function setType(t){
   txnType = t; $('#tExp').classList.toggle('on', t === 'expense'); $('#tInc').classList.toggle('on', t === 'income');
   const cats = S.categories.filter(c => c.kind === txnType);
@@ -677,6 +714,35 @@ $('#fAcc').onchange = updatePreview;
 $('#fAmount').oninput = updatePreview;
 $('#overlay').onclick = e => { if(e.target === $('#overlay')) closeModal(); };
 $('#emailOverlay').onclick = e => { if(e.target === $('#emailOverlay')) closeEmailModal(); };
+$('#cancelBudgetBtn').onclick = closeBudgetModal;
+$('#budgetOverlay').onclick = e => { if(e.target === $('#budgetOverlay')) closeBudgetModal(); };
+$('#budgetLimitAmount').onkeydown = e => { if(e.key === 'Enter') $('#saveBudgetBtn').click(); };
+$('#saveBudgetBtn').onclick = async () => {
+  const limit_vnd = Number($('#budgetLimitAmount').value);
+  if(!Number.isFinite(limit_vnd) || limit_vnd <= 0){
+    $('#budgetErr').textContent = 'Vui lòng nhập hạn mức hợp lệ, lớn hơn 0 ₫.';
+    return;
+  }
+  const button = $('#saveBudgetBtn');
+  button.disabled = true;
+  $('#budgetErr').textContent = '';
+  try {
+    const r = await fetch('/api/budgets', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({category_id: editingBudgetCategoryId, limit_vnd, period: S.period})
+    });
+    const data = await r.json();
+    if(!r.ok) throw new Error(data.error || 'Không thể cập nhật hạn mức.');
+    S = data.state;
+    closeBudgetModal();
+    render();
+  } catch(e) {
+    $('#budgetErr').textContent = e.message;
+  } finally {
+    button.disabled = false;
+  }
+};
 $('#saveBtn').onclick = async () => {
   try{
     const r = await fetch('/api/transactions', {
