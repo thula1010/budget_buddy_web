@@ -323,6 +323,47 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
         self.assertEqual(rejected_last.status_code, 400)
         self.assertEqual(len(self.client.get("/api/state").get_json()["accounts"]), 1)
 
+    def test_create_funding_source_with_type_and_opening_balance(self):
+        self.signup("source_creator", "source_creator@example.com")
+        created = self.client.post(
+            "/api/accounts",
+            json={
+                "name": "  ACB   Savings  ",
+                "type": "bank",
+                "balance": 1_234_567,
+                "period": "2026-08",
+            },
+        )
+        self.assertEqual(created.status_code, 201)
+        payload = created.get_json()
+        source = next(a for a in payload["state"]["accounts"] if a["id"] == payload["account_id"])
+        self.assertEqual(source["name"], "ACB Savings")
+        self.assertEqual(source["type"], "bank")
+        self.assertEqual(source["icon"], "🏦")
+        self.assertEqual(source["balance"], 1_234_567)
+        self.assertEqual(payload["state"]["kpi"]["balance"], 4_034_567)
+
+        duplicate = self.client.post(
+            "/api/accounts",
+            json={"name": "acb savings", "type": "bank", "balance": 0},
+        )
+        self.assertEqual(duplicate.status_code, 400)
+        invalid_type = self.client.post(
+            "/api/accounts",
+            json={"name": "Invalid source", "type": "crypto", "balance": 0},
+        )
+        self.assertEqual(invalid_type.status_code, 400)
+        negative = self.client.post(
+            "/api/accounts",
+            json={"name": "Negative source", "type": "cash", "balance": -1},
+        )
+        self.assertEqual(negative.status_code, 400)
+
+        self.client.get("/logout")
+        self.signup("source_creator_other", "source_creator_other@example.com")
+        other_state = self.client.get("/api/state").get_json()
+        self.assertNotIn("ACB Savings", [a["name"] for a in other_state["accounts"]])
+
     def test_navigation_badges_are_available_on_finance_pages(self):
         self.signup("badge_viewer", "badge_viewer@example.com")
         for path in ("/", "/transactions", "/budgets", "/goals", "/ai-coach"):
@@ -331,6 +372,17 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
             html = response.get_data(as_text=True)
             self.assertEqual(html.count('data-nav-section="'), 5, path)
             self.assertIn("js/nav-badges.js", html, path)
+
+    def test_ai_coach_includes_multiple_chat_tabs(self):
+        self.signup("multi_chat", "multi_chat@example.com")
+        response = self.client.get("/ai-coach")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('class="chat-tabs-bar"', html)
+        self.assertIn("window.newChat", html)
+        self.assertIn("window.switchChat", html)
+        self.assertIn("window.closeChat", html)
+        self.assertIn("budget-buddy-ai-chats-v1", html)
 
     def test_goals_and_receipt_ocr_response_shape(self):
         self.signup("dana", "dana@example.com")

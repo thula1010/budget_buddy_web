@@ -99,6 +99,12 @@
     ['Funding source name is required.', 'Vui lòng nhập tên nguồn tiền.'],
     ['Unable to update the funding source.', 'Không thể cập nhật nguồn tiền.'],
     ['Unable to delete the funding source.', 'Không thể xóa nguồn tiền.'],
+    ['Link funding source', 'Liên kết nguồn tiền'], ['Funding source type', 'Loại nguồn tiền'],
+    ['Bank account', 'Tài khoản ngân hàng'], ['E-wallet', 'Ví điện tử'],
+    ['Bank / funding source name', 'Tên ngân hàng / nguồn tiền'],
+    ['e.g. Vietcombank', 'VD: Vietcombank'], ['Create funding source', 'Tạo nguồn tiền'],
+    ['Enter the current available balance. It will become the starting balance for this source.', 'Nhập số dư hiện có. Đây sẽ là số dư ban đầu của nguồn tiền này.'],
+    ['Unable to create the funding source.', 'Không thể tạo nguồn tiền.'],
     ['Unable to update the budget limit.', 'Không thể cập nhật hạn mức.'],
     ['Unable to save the transaction.', 'Không thể lưu giao dịch'],
     ['Unable to delete the account.', 'Không thể xóa tài khoản.']
@@ -124,6 +130,7 @@
     ['Net This Month', 'Ròng tháng này'], ['Merchant', 'Nội dung'],
     ['+ New Goal', '+ Mục tiêu mới'], ['Total Saved Across Goals', 'Tổng tiền đã tích lũy'],
     ['Personal Smart Assistant', 'Trợ lý tài chính thông minh'], ['Send ↑', 'Gửi ↑'],
+    ['New chat', 'Chat mới'], ['Close chat', 'Đóng trò chuyện'],
     ['Quick Prompts', 'Gợi ý nhanh'], ['Of', 'trên'], ['completed', 'hoàn thành']
   ];
 

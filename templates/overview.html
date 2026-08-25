@@ -211,7 +211,7 @@ canvas{max-width:100%}
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span>Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
     </div>
     <nav class="nav" id="nav">
       <button data-tab="overview" data-nav-section="overview" class="active">&#127968; <span class="lbl">Overview</span></button>
@@ -322,6 +322,36 @@ canvas{max-width:100%}
         <small>Transactions linked to this source will also be permanently deleted.</small>
       </div>
       <button class="btn danger" id="deleteFundingSourceBtn" type="button">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="linkAccountOverlay">
+  <div class="modal" style="width:460px">
+    <h3>Link funding source</h3>
+    <div class="field">
+      <label>Funding source type</label>
+      <select id="newAccountType">
+        <option value="bank">Bank account</option>
+        <option value="cash">Cash</option>
+        <option value="ewallet">E-wallet</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Bank / funding source name</label>
+      <input id="newAccountName" type="text" maxlength="100" autocomplete="off" placeholder="e.g. Vietcombank">
+    </div>
+    <div class="field">
+      <label><span>Current balance</span> (<span data-currency-label>VND</span>)</label>
+      <input id="newAccountBalance" type="number" min="0" step="any" inputmode="decimal" value="0">
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin:-4px 0 14px">
+      Enter the current available balance. It will become the starting balance for this source.
+    </div>
+    <div class="err" id="linkAccountErr"></div>
+    <div class="row2">
+      <button class="btn ghost" id="cancelLinkAccountBtn">Cancel</button>
+      <button class="btn" id="saveLinkAccountBtn">Create funding source</button>
     </div>
   </div>
 </div>
@@ -572,7 +602,7 @@ function vOverview(){
         <div style="text-align:right"><h3>Total across accounts</h3>
         <b style="font-size:22px;color:var(--accent)">${money(S.kpi.balance)}</b></div>
       </div>${accHtml}
-      <button class="btn ghost" style="width:100%;margin-top:16px" onclick="alert('Demo: chức năng liên kết tài khoản')">+ Link Account</button>
+      <button class="btn ghost" style="width:100%;margin-top:16px" onclick="openLinkAccountModal()">+ Link Account</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="card"><h3>Spending by Category</h3><canvas id="donut" height="210"></canvas></div>
@@ -730,6 +760,17 @@ function closeAccountEditModal(){
   $('#accountEditOverlay').classList.remove('open');
   editingAccountId = null;
 }
+function openLinkAccountModal(){
+  $('#newAccountType').value = 'bank';
+  $('#newAccountName').value = '';
+  $('#newAccountBalance').value = BB.inputValue(0);
+  $('#linkAccountErr').textContent = '';
+  $('#linkAccountOverlay').classList.add('open');
+  $('#newAccountName').focus();
+}
+function closeLinkAccountModal(){
+  $('#linkAccountOverlay').classList.remove('open');
+}
 function setType(t){
   txnType = t;
   $('#tExp').classList.toggle('on', t === 'expense');
@@ -748,6 +789,10 @@ $('#cancelAccountEditBtn').onclick = closeAccountEditModal;
 $('#accountEditOverlay').onclick = e => { if(e.target === $('#accountEditOverlay')) closeAccountEditModal(); };
 $('#accountName').onkeydown = e => { if(e.key === 'Enter') $('#saveAccountEditBtn').click(); };
 $('#accountBalance').onkeydown = e => { if(e.key === 'Enter') $('#saveAccountEditBtn').click(); };
+$('#cancelLinkAccountBtn').onclick = closeLinkAccountModal;
+$('#linkAccountOverlay').onclick = e => { if(e.target === $('#linkAccountOverlay')) closeLinkAccountModal(); };
+$('#newAccountName').onkeydown = e => { if(e.key === 'Enter') $('#saveLinkAccountBtn').click(); };
+$('#newAccountBalance').onkeydown = e => { if(e.key === 'Enter') $('#saveLinkAccountBtn').click(); };
 
 $('#saveAccountEditBtn').onclick = async () => {
   const name = $('#accountName').value.trim();
@@ -813,6 +858,45 @@ $('#deleteFundingSourceBtn').onclick = async () => {
   } finally {
     $('#saveAccountEditBtn').disabled = false;
     if(editingAccountId !== null) deleteButton.disabled = S.accounts.length <= 1;
+  }
+};
+
+$('#saveLinkAccountBtn').onclick = async () => {
+  const name = $('#newAccountName').value.trim();
+  const displayBalance = Number($('#newAccountBalance').value);
+  const balance = BB.toBase(displayBalance);
+  if(!name){
+    $('#linkAccountErr').textContent = BB.text('Funding source name is required.', 'Vui lòng nhập tên nguồn tiền.');
+    return;
+  }
+  if(!Number.isFinite(displayBalance) || displayBalance < 0){
+    $('#linkAccountErr').textContent = BB.text(`Enter a valid balance of 0 ${BB.currencyLabel()} or more.`, `Vui lòng nhập số dư hợp lệ, từ 0 ${BB.currencyLabel()} trở lên.`);
+    return;
+  }
+
+  const button = $('#saveLinkAccountBtn');
+  button.disabled = true;
+  $('#linkAccountErr').textContent = '';
+  try {
+    const response = await fetch('/api/accounts', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name,
+        type: $('#newAccountType').value,
+        balance,
+        period: S.period
+      })
+    });
+    const data = await response.json();
+    if(!response.ok) throw new Error(data.error || BB.text('Unable to create the funding source.', 'Không thể tạo nguồn tiền.'));
+    S = data.state;
+    closeLinkAccountModal();
+    render();
+  } catch(error) {
+    $('#linkAccountErr').textContent = error.message;
+  } finally {
+    button.disabled = false;
   }
 };
 
