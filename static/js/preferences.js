@@ -131,6 +131,7 @@
     ['+ New Goal', '+ Mục tiêu mới'], ['Total Saved Across Goals', 'Tổng tiền đã tích lũy'],
     ['Personal Smart Assistant', 'Trợ lý tài chính thông minh'], ['Send ↑', 'Gửi ↑'],
     ['New chat', 'Chat mới'], ['Close chat', 'Đóng trò chuyện'],
+    ['Chat history', 'Lịch sử trò chuyện'], ['Rename chat', 'Đổi tên trò chuyện'],
     ['Quick Prompts', 'Gợi ý nhanh'], ['Of', 'trên'], ['completed', 'hoàn thành']
   ];
 

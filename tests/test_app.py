@@ -378,10 +378,12 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
         response = self.client.get("/ai-coach")
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn('class="chat-tabs-bar"', html)
+        self.assertIn('class="chat-history"', html)
         self.assertIn("window.newChat", html)
         self.assertIn("window.switchChat", html)
         self.assertIn("window.closeChat", html)
+        self.assertIn("window.startRenameChat", html)
+        self.assertIn("window.saveChatTitle", html)
         self.assertIn("budget-buddy-ai-chats-v1", html)
 
     def test_goals_and_receipt_ocr_response_shape(self):

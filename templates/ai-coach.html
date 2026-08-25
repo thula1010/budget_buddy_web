@@ -94,20 +94,26 @@ body{
 .card h3{font-size:12px;letter-spacing:1.1px;color:var(--muted);font-weight:700;text-transform:uppercase}
 .chat-wrap{display:grid;grid-template-columns:1.35fr .65fr;gap:16px;align-items:start}
 .chat{display:flex;flex-direction:column;height:560px;padding:0;overflow:hidden}
-.chat-tabs-bar{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);background:#fff}
-.chat-tabs{display:flex;gap:7px;min-width:0;overflow-x:auto;flex:1;padding:2px;scrollbar-width:thin}
-.chat-tab{display:flex;align-items:center;flex:0 0 auto;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;overflow:hidden;transition:.16s}
+.chat-workspace{display:grid;grid-template-columns:190px minmax(0,1fr);height:100%;min-height:0}
+.chat-history{display:flex;flex-direction:column;min-width:0;padding:14px 11px;border-right:1px solid var(--border);background:#fff}
+.chat-history-title{padding:2px 5px 11px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase}
+.chat-tabs{display:flex;flex-direction:column;gap:7px;min-height:0;overflow-y:auto;overflow-x:hidden;flex:1;padding:2px;scrollbar-width:thin}
+.chat-tab{display:flex;align-items:center;width:100%;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;overflow:hidden;transition:.16s}
 .chat-tab.active{background:#F0FDFA;border-color:#5EEAD4;box-shadow:0 0 0 2px rgba(13,148,136,.08)}
-.chat-tab-main,.chat-tab-close,.new-chat-btn{border:0;background:transparent;font:inherit;cursor:pointer}
-.chat-tab-main{display:flex;align-items:center;gap:7px;max-width:170px;padding:8px 6px 8px 11px;color:var(--text);font-size:12.5px;font-weight:700}
+.chat-tab-main,.chat-tab-action,.new-chat-btn{border:0;background:transparent;font:inherit;cursor:pointer}
+.chat-tab-main{display:flex;align-items:center;gap:7px;min-width:0;flex:1;padding:9px 4px 9px 9px;color:var(--text);font-size:12.5px;font-weight:700;text-align:left}
 .chat-tab-main span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chat-tab.active .chat-tab-main{color:var(--accent)}
-.chat-tab-close{padding:7px 9px 8px 5px;color:var(--muted);font-size:17px;line-height:1}
-.chat-tab-close:hover{color:var(--expense)}
-.chat-tab-close:disabled{opacity:.35;cursor:not-allowed}
+.chat-tab-action{padding:7px 4px;color:var(--muted);font-size:13px;line-height:1;flex:none}
+.chat-tab-action:last-child{padding-right:8px;font-size:17px}
+.chat-tab-action.rename:hover{color:var(--accent)}
+.chat-tab-action.close:hover{color:var(--expense)}
+.chat-tab-action:disabled{opacity:.35;cursor:not-allowed}
+.chat-title-input{min-width:0;width:100%;margin:4px;padding:6px 7px;border:1px solid var(--accent);border-radius:7px;font:inherit;font-size:12px;color:var(--text);outline:none;background:#fff}
 .chat-tab-unread{width:7px;height:7px;border-radius:50%;background:#F43F5E;box-shadow:0 0 0 3px rgba(244,63,94,.10);flex:none}
-.new-chat-btn{flex:none;padding:8px 11px;border:1px dashed #5EEAD4;border-radius:10px;color:var(--accent);font-size:12.5px;font-weight:800;white-space:nowrap}
+.new-chat-btn{width:100%;flex:none;margin-bottom:10px;padding:8px 9px;border:1px dashed #5EEAD4;border-radius:10px;color:var(--accent);font-size:12px;font-weight:800;white-space:nowrap}
 .new-chat-btn:hover{background:#F0FDFA}
+.chat-main{display:flex;flex-direction:column;min-width:0;min-height:0}
 .msgs{flex:1;overflow-y:auto;padding:22px;background:var(--bg);display:flex;flex-direction:column;gap:14px}
 .msg{display:flex;gap:10px;max-width:80%}
 .msg.me{align-self:flex-end;flex-direction:row-reverse}
@@ -143,6 +149,11 @@ body{
 @media(max-width:1000px){
   .chat-wrap{grid-template-columns:1fr}
   .sidebar{width:76px}.brand div,.nav a span.lbl,.profile div,.logout-btn{display:none}
+}
+@media(max-width:620px){
+  .chat-workspace{grid-template-columns:145px minmax(0,1fr)}
+  .chat-history{padding:10px 7px}
+  .chat-tab-action.rename{display:none}
 }
 </style>
 </head>
@@ -201,6 +212,7 @@ let S = null;
 let conversations = [];
 let activeChatId = null;
 let nextChatNumber = 1;
+let editingChatTitleId = null;
 const sendingChats = new Set();
 const esc = BBMarkdown.escape;
 
@@ -218,7 +230,8 @@ function createConversation(){
     title:BB.text(`Chat ${number}`, `Cuộc trò chuyện ${number}`),
     messages:[welcomeMessage()],
     draft:'',
-    unread:false
+    unread:false,
+    customTitle:false
   };
 }
 
@@ -233,7 +246,8 @@ function loadConversations(){
         message && (message.from === 'ai' || message.from === 'me') && typeof message.text === 'string'
       ).slice(-100).map(message => ({from:message.from, text:message.text, error:Boolean(message.error)})) : [],
       draft:typeof row.draft === 'string' ? row.draft.slice(0, 5000) : '',
-      unread:Boolean(row.unread)
+      unread:Boolean(row.unread),
+      customTitle:Boolean(row.customTitle)
     }));
     conversations.forEach(row => { if(!row.messages.length) row.messages = [welcomeMessage()]; });
     nextChatNumber = Math.max(Number(stored.nextChatNumber) || 1, conversations.length + 1);
@@ -258,7 +272,8 @@ function saveConversations(){
         title:row.title,
         messages:row.messages.filter(message => !message.pending).slice(-100),
         draft:row.draft || '',
-        unread:Boolean(row.unread)
+        unread:Boolean(row.unread),
+        customTitle:Boolean(row.customTitle)
       }))
     }));
   } catch(error) {
@@ -308,6 +323,39 @@ window.closeChat = id => {
   render();
 };
 
+window.startRenameChat = id => {
+  if(!conversations.some(row => row.id === id)) return;
+  editingChatTitleId = id;
+  render();
+  setTimeout(() => {
+    const input = document.querySelector('.chat-title-input');
+    if(input){ input.focus(); input.select(); }
+  }, 0);
+};
+
+window.saveChatTitle = (id, value) => {
+  const conversation = conversations.find(row => row.id === id);
+  const title = String(value || '').trim();
+  editingChatTitleId = null;
+  if(conversation && title){
+    conversation.title = title.slice(0, 40);
+    conversation.customTitle = true;
+    saveConversations();
+  }
+  render();
+};
+
+window.chatTitleKey = (event, input, id) => {
+  if(event.key === 'Enter'){
+    event.preventDefault();
+    saveChatTitle(id, input.value);
+  } else if(event.key === 'Escape'){
+    event.preventDefault();
+    editingChatTitleId = null;
+    render();
+  }
+};
+
 window.updateChatDraft = value => {
   const conversation = activeConversation();
   if(conversation) conversation.draft = value;
@@ -350,10 +398,13 @@ function render(){
   const isSending = sendingChats.has(conversation.id);
   const tabs = conversations.map(row => `
     <div class="chat-tab ${row.id===activeChatId?'active':''}" data-chat-id="${esc(row.id)}">
-      <button class="chat-tab-main" onclick="switchChat(this.parentElement.dataset.chatId)" title="${esc(row.title)}">
-        <span>${esc(row.title)}</span>${row.unread?'<i class="chat-tab-unread" aria-hidden="true"></i>':''}
-      </button>
-      <button class="chat-tab-close" onclick="closeChat(this.parentElement.dataset.chatId)" title="${BB.text('Close chat', 'Đóng trò chuyện')}" ${sendingChats.has(row.id)?'disabled':''}>&times;</button>
+      ${editingChatTitleId===row.id
+        ? `<input class="chat-title-input" value="${esc(row.title)}" maxlength="40" onkeydown="chatTitleKey(event,this,this.parentElement.dataset.chatId)" onblur="saveChatTitle(this.parentElement.dataset.chatId,this.value)">`
+        : `<button class="chat-tab-main" onclick="switchChat(this.parentElement.dataset.chatId)" title="${esc(row.title)}">
+            <span>${esc(row.title)}</span>${row.unread?'<i class="chat-tab-unread" aria-hidden="true"></i>':''}
+          </button>
+          <button class="chat-tab-action rename" onclick="startRenameChat(this.parentElement.dataset.chatId)" title="${BB.text('Rename chat', 'Đổi tên trò chuyện')}">&#9998;</button>
+          <button class="chat-tab-action close" onclick="closeChat(this.parentElement.dataset.chatId)" title="${BB.text('Close chat', 'Đóng trò chuyện')}" ${sendingChats.has(row.id)?'disabled':''}>&times;</button>`}
     </div>`).join('');
   const msgs = conversation.messages.map(m => {
     const content = m.from === 'ai' ? BBMarkdown.render(m.text) : BBMarkdown.renderPlain(m.text);
@@ -363,14 +414,19 @@ function render(){
   }).join('');
   $('#view').innerHTML = `<div class="chat-wrap">
     <div class="card chat">
-      <div class="chat-tabs-bar">
-        <div class="chat-tabs">${tabs}</div>
-        <button class="new-chat-btn" onclick="newChat()">+ ${BB.text('New chat', 'Chat mới')}</button>
-      </div>
-      <div class="msgs" id="msgs">${msgs}</div>
-      <div class="composer">
-        <input id="chatInput" value="${esc(conversation.draft || '')}" oninput="updateChatDraft(this.value)" placeholder="${BB.text('Ask anything about your finances...', 'Hỏi bất cứ điều gì về tài chính của bạn...')}" ${isSending?'disabled':''}>
-        <button class="btn" onclick="send()" ${isSending?'disabled':''}>${BB.text('Send ↑', 'Gửi ↑')}</button>
+      <div class="chat-workspace">
+        <aside class="chat-history">
+          <div class="chat-history-title">${BB.text('Chat history', 'Lịch sử trò chuyện')}</div>
+          <button class="new-chat-btn" onclick="newChat()">+ ${BB.text('New chat', 'Chat mới')}</button>
+          <div class="chat-tabs">${tabs}</div>
+        </aside>
+        <div class="chat-main">
+          <div class="msgs" id="msgs">${msgs}</div>
+          <div class="composer">
+            <input id="chatInput" value="${esc(conversation.draft || '')}" oninput="updateChatDraft(this.value)" placeholder="${BB.text('Ask anything about your finances...', 'Hỏi bất cứ điều gì về tài chính của bạn...')}" ${isSending?'disabled':''}>
+            <button class="btn" onclick="send()" ${isSending?'disabled':''}>${BB.text('Send ↑', 'Gửi ↑')}</button>
+          </div>
+        </div>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:16px">
@@ -395,7 +451,7 @@ window.send = async () => {
   if(!text || !conversation || sendingChats.has(conversation.id)) return;
   const chatId = conversation.id;
   const hasUserMessage = conversation.messages.some(message => message.from === 'me');
-  if(!hasUserMessage) conversation.title = text.length > 28 ? text.slice(0, 28) + '…' : text;
+  if(!hasUserMessage && !conversation.customTitle) conversation.title = text.length > 28 ? text.slice(0, 28) + '…' : text;
   conversation.draft = '';
   sendingChats.add(chatId);
   const pending = {from:'ai', text:BB.text('Thinking…', 'Đang phân tích…'), pending:true};
