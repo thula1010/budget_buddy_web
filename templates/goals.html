@@ -1,506 +1,929 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Budget Buddy 2.0 — Goals</title>
-<script>window.BB_PREFERENCES = {{ app_preferences|tojson }};</script>
-<script src="{{ url_for('static', filename='js/preferences.js') }}"></script>
-<script src="{{ url_for('static', filename='js/nav-badges.js', v='20260825-1') }}"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#F8FAFC; --card:#FFFFFF; --accent:#0D9488; --accent-2:#14B8A6;
-  --text:#334155; --muted:#94A3B8; --border:#E2E8F0;
-  --income:#34D399; --expense:#F87171; --ai:#A78BFA;
-  --r:16px; --shadow:0 4px 20px -2px rgba(0,0,0,0.05), 0 2px 6px -1px rgba(0,0,0,0.02);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{
-  font-family:'Plus Jakarta Sans','Inter',system-ui,sans-serif;
-  background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased;
-}
-.app{display:flex;min-height:100vh}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Budget Buddy 2.0 — Goals</title>
+  <script>window.BB_PREFERENCES = {{ app_preferences | tojson }};</script>
+  <script src="{{ url_for('static', filename='js/preferences.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/nav-badges.js', v='20260825-1') }}"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --accent: #0D9488;
+      --accent-2: #14B8A6;
+      --text: #334155;
+      --muted: #94A3B8;
+      --border: #E2E8F0;
+      --income: #34D399;
+      --expense: #F87171;
+      --ai: #A78BFA;
+      --r: 16px;
+      --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    }
 
-/* ---------- Sidebar ---------- */
-.sidebar{
-  width:250px;background:var(--card);border-right:1px solid var(--border);
-  display:flex;flex-direction:column;position:sticky;top:0;height:100vh;
-}
-.brand{display:flex;gap:12px;align-items:center;padding:22px 20px;border-bottom:1px solid var(--border)}
-.brand .logo{
-  width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:22px;
-  background:linear-gradient(135deg,var(--accent),var(--accent-2));
-  box-shadow:0 6px 16px rgba(13,148,136,.28);color:#fff;
-}
-.brand h1{font-size:16px;font-weight:800;letter-spacing:-.2px}
-.brand span{font-size:12px;color:var(--muted);font-weight:500}
-.nav{padding:16px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
-.nav a{
-  display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border:0;
-  background:transparent;border-radius:12px;font:inherit;font-size:15px;font-weight:600;
-  color:var(--text);text-decoration:none;transition:.18s;border-left:3px solid transparent;
-}
-.nav a:hover{background:#F1F5F9}
-.nav a.active{
-  color:var(--accent);border-left-color:var(--accent);
-  background:linear-gradient(90deg,rgba(13,148,136,.10),rgba(13,148,136,0));
-}
-.profile{
-  display:flex;gap:12px;align-items:center;justify-content:space-between;
-  padding:18px 20px;border-top:1px solid var(--border);
-}
-.avatar{
-  width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;
-  font-weight:700;font-size:13px;background:linear-gradient(135deg,var(--accent),var(--accent-2));
-  flex-shrink:0;
-}
-.logout-btn{
-  color: var(--muted); display: flex; align-items: center; justify-content: center;
-  padding: 6px; border-radius: 8px; transition: 0.2s; text-decoration:none;
-}
-.logout-btn:hover{ color: var(--expense); background: #FEF2F2; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
 
-/* ---------- Main Content ---------- */
-.main{flex:1;min-width:0}
-.topbar{
-  display:flex;align-items:center;justify-content:space-between;gap:16px;
-  padding:22px 32px;border-bottom:1px solid var(--border);background:var(--card);
-  position:sticky;top:0;z-index:20;
-}
-.topbar h2{font-size:26px;font-weight:800;letter-spacing:-.4px}
-.topbar p{font-size:13px;color:var(--muted);margin-top:2px}
-.synced{
-  display:flex;align-items:center;gap:8px;background:#F1F5F9;color:var(--text);
-  padding:9px 16px;border-radius:999px;font-size:13px;font-weight:600;
-}
-.pulse{width:8px;height:8px;border-radius:50%;background:var(--income);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+    body {
+      font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
 
-.btn{
-  border:0;border-radius:12px;padding:12px 20px;font:inherit;font-weight:700;font-size:14px;
-  color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--accent-2));
-  box-shadow:0 4px 14px rgba(13,148,136,.28);transition:.18s;display:inline-flex;align-items:center;justify-content:center;gap:6px;
-}
-.btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(13,148,136,.34)}
-.btn.ghost{background:#fff;color:var(--text);border:1px solid var(--border);box-shadow:none}
-.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
-.btn.sm{padding:8px 14px;font-size:13px;border-radius:10px}
+    .app {
+      display: flex;
+      min-height: 100vh
+    }
 
-.content{padding:26px 32px 60px;display:flex;flex-direction:column;gap:20px}
+    /* ---------- Sidebar ---------- */
+    .sidebar {
+      width: 250px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
 
-/* ---------- Goals Banner & Cards ---------- */
-.card{
-  background:var(--card);border:1px solid var(--border);border-radius:var(--r);
-  box-shadow:var(--shadow);padding:22px;transition:.2s;
-}
-.grid{display:grid;gap:16px}
-.g3{grid-template-columns:repeat(3,1fr)}
-.tile{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;font-size:22px;flex:none}
-.badge{display:inline-block;padding:5px 12px;border-radius:999px;font-size:12px;font-weight:700;}
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 22px 20px;
+      border-bottom: 1px solid var(--border)
+    }
 
-.goal-banner{
-  background:linear-gradient(120deg,var(--accent),var(--accent-2));color:#fff;
-  border-radius:var(--r);padding:26px 28px;display:flex;align-items:center;justify-content:space-between;
-  box-shadow:0 8px 20px rgba(13,148,136,.25);
-}
-.goal-banner .t{font-size:14px;opacity:.9;font-weight:600}
-.goal-banner .v{font-size:38px;font-weight:800;letter-spacing:-1.2px;margin-top:4px}
-.goal-banner .pill{background:rgba(255,255,255,.22);padding:9px 18px;border-radius:999px;font-weight:700;font-size:13.5px}
+    .brand .logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 6px 16px rgba(13, 148, 136, .28);
+      color: #fff;
+    }
 
-.goal{position:relative;overflow:hidden;padding-top:26px;display:flex;flex-direction:column;justify-content:space-between}
-.goal::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--c)}
-.goal .pct{font-size:30px;font-weight:800;color:var(--c);letter-spacing:-1px}
-.goal .nm{font-size:18px;font-weight:800;margin-top:14px}
-.goal .dl{color:var(--muted);font-size:13px;margin-top:3px}
-.goal .note{border-radius:12px;padding:12px 14px;font-size:13px;font-weight:600;margin-top:14px}
-.bar{height:8px;border-radius:99px;background:#F1F5F9;margin-top:11px;overflow:hidden}
-.bar i{display:block;height:100%;border-radius:99px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+    .brand h1 {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -.2px
+    }
 
-/* ---------- Modals ---------- */
-.overlay{position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(3px);display:none;place-items:center;z-index:50}
-.overlay.open{display:grid}
-.modal{background:var(--card);border-radius:20px;width:480px;max-width:94vw;max-height:92vh;overflow:auto;padding:28px;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1)}
-.modal h3{font-size:20px;text-transform:none;letter-spacing:-.3px;color:var(--text);margin-bottom:18px}
-.field{margin-bottom:15px}
-.field label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:7px}
-.field input, .field select{
-  width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:11px;
-  font:inherit;font-size:14px;background:var(--card);color:var(--text);
-}
-.field input:focus, .field select:focus{outline:none;border-color:var(--accent)}
-.err{color:var(--expense);font-size:13px;font-weight:600;margin-bottom:12px;min-height:18px}
-.row2{display:flex;gap:10px}
-.row2>*{flex:1}
+    .brand span {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500
+    }
 
-.quick-amounts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.quick-btn{
-  background:#F1F5F9;border:1px solid var(--border);padding:6px 12px;border-radius:8px;
-  font-size:12px;font-weight:700;color:var(--text);cursor:pointer;transition:.15s;
-}
-.quick-btn:hover{background:rgba(13,148,136,.1);border-color:var(--accent);color:var(--accent)}
+    .nav {
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1
+    }
 
-.emoji-selector{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-top:6px}
-.emoji-option{
-  width:36px;height:36px;border-radius:10px;border:1px solid var(--border);
-  display:grid;place-items:center;font-size:18px;cursor:pointer;flex-shrink:0;transition:.15s;
-}
-.emoji-option:hover{border-color:var(--accent);background:rgba(13,148,136,.08)}
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 12px 14px;
+      border: 0;
+      background: transparent;
+      border-radius: 12px;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      text-decoration: none;
+      transition: .18s;
+      border-left: 3px solid transparent;
+    }
 
-@media(max-width:1000px){
-  .g3{grid-template-columns:repeat(2,1fr)}
-  .sidebar{width:76px}.brand div,.nav a span.lbl,.profile div,.logout-btn{display:none}
-}
-@media(max-width:640px){
-  .g3{grid-template-columns:1fr}
-  .content{padding:20px 16px}
-}
-</style>
+    .nav a:hover {
+      background: #F1F5F9
+    }
+
+    .nav a.active {
+      color: var(--accent);
+      border-left-color: var(--accent);
+      background: linear-gradient(90deg, rgba(13, 148, 136, .10), rgba(13, 148, 136, 0));
+    }
+
+    .profile {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      flex-shrink: 0;
+    }
+
+    .logout-btn {
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 8px;
+      transition: 0.2s;
+      text-decoration: none;
+    }
+
+    .logout-btn:hover {
+      color: var(--expense);
+      background: #FEF2F2;
+    }
+
+    /* ---------- Main Content ---------- */
+    .main {
+      flex: 1;
+      min-width: 0
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 22px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .topbar h2 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -.4px
+    }
+
+    .topbar p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 2px
+    }
+
+    .synced {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #F1F5F9;
+      color: var(--text);
+      padding: 9px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--income);
+      animation: pulse 2s infinite
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .35
+      }
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 20px;
+      font: inherit;
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 4px 14px rgba(13, 148, 136, .28);
+      transition: .18s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(13, 148, 136, .34)
+    }
+
+    .btn.ghost {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+      box-shadow: none
+    }
+
+    .btn.ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .btn.sm {
+      padding: 8px 14px;
+      font-size: 13px;
+      border-radius: 10px
+    }
+
+    .content {
+      padding: 26px 32px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px
+    }
+
+    /* ---------- Goals Banner & Cards ---------- */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      transition: .2s;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px
+    }
+
+    .g3 {
+      grid-template-columns: repeat(3, 1fr)
+    }
+
+    .tile {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      flex: none
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .goal-banner {
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border-radius: var(--r);
+      padding: 26px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 8px 20px rgba(13, 148, 136, .25);
+    }
+
+    .goal-banner .t {
+      font-size: 14px;
+      opacity: .9;
+      font-weight: 600
+    }
+
+    .goal-banner .v {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -1.2px;
+      margin-top: 4px
+    }
+
+    .goal-banner .pill {
+      background: rgba(255, 255, 255, .22);
+      padding: 9px 18px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13.5px
+    }
+
+    .goal {
+      position: relative;
+      overflow: hidden;
+      padding-top: 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between
+    }
+
+    .goal::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--c)
+    }
+
+    .goal .pct {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--c);
+      letter-spacing: -1px
+    }
+
+    .goal .nm {
+      font-size: 18px;
+      font-weight: 800;
+      margin-top: 14px
+    }
+
+    .goal .dl {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 3px
+    }
+
+    .goal .note {
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-top: 14px
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 99px;
+      background: #F1F5F9;
+      margin-top: 11px;
+      overflow: hidden
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      border-radius: 99px;
+      transition: width .8s cubic-bezier(.4, 0, .2, 1)
+    }
+
+    /* ---------- Modals ---------- */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, .42);
+      backdrop-filter: blur(3px);
+      display: none;
+      place-items: center;
+      z-index: 50
+    }
+
+    .overlay.open {
+      display: grid
+    }
+
+    .modal {
+      background: var(--card);
+      border-radius: 20px;
+      width: 480px;
+      max-width: 94vw;
+      max-height: 92vh;
+      overflow: auto;
+      padding: 28px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1)
+    }
+
+    .modal h3 {
+      font-size: 20px;
+      text-transform: none;
+      letter-spacing: -.3px;
+      color: var(--text);
+      margin-bottom: 18px
+    }
+
+    .field {
+      margin-bottom: 15px
+    }
+
+    .field label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 7px
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      font: inherit;
+      font-size: 14px;
+      background: var(--card);
+      color: var(--text);
+    }
+
+    .field input:focus,
+    .field select:focus {
+      outline: none;
+      border-color: var(--accent)
+    }
+
+    .err {
+      color: var(--expense);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      min-height: 18px
+    }
+
+    .row2 {
+      display: flex;
+      gap: 10px
+    }
+
+    .row2>* {
+      flex: 1
+    }
+
+    .quick-amounts {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px
+    }
+
+    .quick-btn {
+      background: #F1F5F9;
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      transition: .15s;
+    }
+
+    .quick-btn:hover {
+      background: rgba(13, 148, 136, .1);
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .emoji-selector {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-top: 6px
+    }
+
+    .emoji-option {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: .15s;
+    }
+
+    .emoji-option:hover {
+      border-color: var(--accent);
+      background: rgba(13, 148, 136, .08)
+    }
+
+    @media(max-width:1000px) {
+      .g3 {
+        grid-template-columns: repeat(2, 1fr)
+      }
+
+      .sidebar {
+        width: 76px
+      }
+
+      .brand div,
+      .nav a span.lbl,
+      .profile div,
+      .logout-btn {
+        display: none
+      }
+    }
+
+    @media(max-width:640px) {
+      .g3 {
+        grid-template-columns: 1fr
+      }
+
+      .content {
+        padding: 20px 16px
+      }
+    }
+  </style>
 </head>
+
 <body>
-<div class="app">
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
-    </div>
-    <nav class="nav">
-      <a href="/" data-nav-section="overview">&#127968; <span class="lbl">Overview</span></a>
-      <a href="transactions" data-nav-section="transactions">&#8596;&#65039; <span class="lbl">Transactions</span></a>
-      <a href="budgets" data-nav-section="budgets">&#128202; <span class="lbl">Budgets</span></a>
-      <a href="goals" data-nav-section="goals" class="active">&#127919; <span class="lbl">Goals</span></a>
-      <a href="ai-coach" data-nav-section="ai-coach">&#10024; <span class="lbl">AI Coach</span></a>
-    </nav>
-    <div class="profile">
-      <div style="display: flex; gap: 12px; align-items: center; min-width: 0;">
-        <div class="avatar" id="avatar">{{ user.username[0].upper() }}</div>
-        <div style="min-width: 0;">
-          <b id="uname" style="font-size: 14px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ user.username }}</b>
-          <small id="uplan" style="color: var(--muted); font-size: 12px;">Student</small>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">&#128176;</div>
+        <div>
+          <h1>Budget Buddy</h1><span> Smart Finance</span>
         </div>
       </div>
-      <a href="/settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"></path></svg>
-      </a>
-      <a href="/logout" title="Đăng xuất" class="logout-btn">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-          <polyline points="16 17 21 12 16 7"></polyline>
-          <line x1="21" y1="12" x2="9" y2="12"></line>
-        </svg>
-      </a>
-    </div>
-  </aside>
+      <nav class="nav">
+        <a href="/" data-nav-section="overview">&#127968; <span class="lbl">Overview</span></a>
+        <a href="transactions" data-nav-section="transactions">&#8596;&#65039; <span class="lbl">Transactions</span></a>
+        <a href="budgets" data-nav-section="budgets">&#128202; <span class="lbl">Budgets</span></a>
+        <a href="goals" data-nav-section="goals" class="active">&#127919; <span class="lbl">Goals</span></a>
+        <a href="ai-coach" data-nav-section="ai-coach">&#10024; <span class="lbl">AI Coach</span></a>
+      </nav>
+      <div class="profile">
+        <div style="display: flex; gap: 12px; align-items: center; min-width: 0;">
+          <div class="avatar" id="avatar">{{ user.username[0].upper() }}</div>
+          <div style="min-width: 0;">
+            <b id="uname"
+              style="font-size: 14px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{
+              user.username }}</b>
+            <small id="uplan" style="color: var(--muted); font-size: 12px;">Student</small>
+          </div>
+        </div>
+        <a href="/settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path
+              d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z">
+            </path>
+          </svg>
+        </a>
+        <a href="/logout" title="Đăng xuất" class="logout-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+        </a>
+      </div>
+    </aside>
 
-  <main class="main">
-    <header class="topbar">
-  <div>
-    <h2>Goals</h2>
-    <p>Track your saving milestones</p>
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2>Goals</h2>
+          <p>Track your saving milestones</p>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div class="synced"><i class="pulse"></i> Synced</div>
+          <button class="btn" id="openModal">+ New Goal</button>
+        </div>
+      </header>
+      <div class="content" id="view"></div>
+    </main>
   </div>
-  <div style="display:flex;gap:12px;align-items:center">
-    <div class="synced"><i class="pulse"></i> Synced</div>
-    <button class="btn" id="openModal">+ New Goal</button>
-  </div>
-</header>
-    <div class="content" id="view"></div>
-  </main>
-</div>
 
-<!-- Modal 1: Add New Goal -->
-<div class="overlay" id="overlay">
-  <div class="modal">
-    <h3>Add New Goal</h3>
-    <div class="field"><label>Goal Name</label><input id="gName" placeholder="e.g. New Laptop"></div>
-    <div class="row2">
-      <div class="field"><label>Target (<span data-currency-label>VND</span>)</label><input id="gTarget" type="number" min="0" step="any"></div>
-      <div class="field"><label>Initial Saved (<span data-currency-label>VND</span>)</label><input id="gSaved" type="number" min="0" step="any" placeholder="0"></div>
-    </div>
-    <div class="row2">
-      <div class="field"><label>Deadline</label><input id="gDeadline" placeholder="e.g. Dec 2026"></div>
+  <!-- Modal 1: Add New Goal -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h3>Add New Goal</h3>
+      <div class="field"><label>Goal Name</label><input id="gName" placeholder="e.g. New Laptop"></div>
+      <div class="row2">
+        <div class="field"><label>Target (<span data-currency-label>VND</span>)</label><input id="gTarget" type="number"
+            min="0" step="any"></div>
+        <div class="field"><label>Initial Saved (<span data-currency-label>VND</span>)</label><input id="gSaved"
+            type="number" min="0" step="any" placeholder="0"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Deadline</label><input id="gDeadline" placeholder="e.g. Dec 2026"></div>
+        <div class="field">
+          <label>Accent Color</label>
+          <select id="gColor">
+            <option value="#0D9488">Teal Green</option>
+            <option value="#A78BFA">Purple</option>
+            <option value="#34D399">Emerald</option>
+            <option value="#F87171">Rose Red</option>
+            <option value="#F59E0B">Amber Gold</option>
+            <option value="#60A5FA">Blue</option>
+          </select>
+        </div>
+      </div>
       <div class="field">
-        <label>Accent Color</label>
-        <select id="gColor">
-          <option value="#0D9488">Teal Green</option>
-          <option value="#A78BFA">Purple</option>
-          <option value="#34D399">Emerald</option>
-          <option value="#F87171">Rose Red</option>
-          <option value="#F59E0B">Amber Gold</option>
-          <option value="#60A5FA">Blue</option>
+        <label>Tài khoản riêng (tiền nạp sẽ trừ từ đây)</label>
+        <select id="gAccount">
+          <option value="">Không liên kết tài khoản</option>
         </select>
       </div>
-    </div>
-    <div class="field">
-      <label>Tài khoản riêng (tiền nạp sẽ trừ từ đây)</label>
-      <select id="gAccount"><option value="">Không liên kết tài khoản</option></select>
-    </div>
-    <div class="field">
-      <label>Icon Emoji</label>
-      <input id="gIcon" placeholder="🎯" value="🎯">
-      <div class="emoji-selector">
-        <div class="emoji-option" onclick="selectEmoji('💻')">💻</div>
-        <div class="emoji-option" onclick="selectEmoji('🗾')">🗾</div>
-        <div class="emoji-option" onclick="selectEmoji('🛡️')">🛡️</div>
-        <div class="emoji-option" onclick="selectEmoji('🚗')">🚗</div>
-        <div class="emoji-option" onclick="selectEmoji('🏠')">🏠</div>
-        <div class="emoji-option" onclick="selectEmoji('🎓')">🎓</div>
+      <div class="field">
+        <label>Icon Emoji</label>
+        <input id="gIcon" placeholder="🎯" value="🎯">
+        <div class="emoji-selector">
+          <div class="emoji-option" onclick="selectEmoji('💻')">💻</div>
+          <div class="emoji-option" onclick="selectEmoji('🗾')">🗾</div>
+          <div class="emoji-option" onclick="selectEmoji('🛡️')">🛡️</div>
+          <div class="emoji-option" onclick="selectEmoji('🚗')">🚗</div>
+          <div class="emoji-option" onclick="selectEmoji('🏠')">🏠</div>
+          <div class="emoji-option" onclick="selectEmoji('🎓')">🎓</div>
+        </div>
       </div>
-    </div>
-    <div class="err" id="err"></div>
-    <div class="row2">
-      <button class="btn ghost" id="cancelBtn">Cancel</button>
-      <button class="btn" id="saveGoalBtn">Save Goal</button>
+      <div class="err" id="err"></div>
+      <div class="row2">
+        <button class="btn ghost" id="cancelBtn">Cancel</button>
+        <button class="btn" id="saveGoalBtn">Save Goal</button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Modal 2: Deposit to Goal -->
-<div class="overlay" id="depositOverlay">
-  <div class="modal">
-    <h3 id="depTitle">Deposit Funds</h3>
-    <div class="field">
-      <label>Amount to Deposit (<span data-currency-label>VND</span>)</label>
-      <input id="depAmount" type="number" step="any">
-      <div class="quick-amounts">
-        <button class="quick-btn" data-base-amount="200000" onclick="setDepAmount(200000)">+200K</button>
-        <button class="quick-btn" data-base-amount="500000" onclick="setDepAmount(500000)">+500K</button>
-        <button class="quick-btn" data-base-amount="1000000" onclick="setDepAmount(1000000)">+1M</button>
-        <button class="quick-btn" data-base-amount="2000000" onclick="setDepAmount(2000000)">+2M</button>
+  <!-- Modal 2: Deposit to Goal -->
+  <div class="overlay" id="depositOverlay">
+    <div class="modal">
+      <h3 id="depTitle">Deposit Funds</h3>
+      <div class="field">
+        <label>Amount to Deposit (<span data-currency-label>VND</span>)</label>
+        <input id="depAmount" type="number" step="any">
+        <div class="quick-amounts">
+          <button class="quick-btn" data-base-amount="200000" onclick="setDepAmount(200000)">+200K</button>
+          <button class="quick-btn" data-base-amount="500000" onclick="setDepAmount(500000)">+500K</button>
+          <button class="quick-btn" data-base-amount="1000000" onclick="setDepAmount(1000000)">+1M</button>
+          <button class="quick-btn" data-base-amount="2000000" onclick="setDepAmount(2000000)">+2M</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:8px">
+          Nhập số âm (VD: -100000) nếu lỡ nạp nhầm và muốn rút bớt.
+        </div>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:8px">
-        Nhập số âm (VD: -100000) nếu lỡ nạp nhầm và muốn rút bớt.
+      <div class="err" id="depErr"></div>
+      <div class="row2" style="margin-top:20px">
+        <button class="btn ghost" onclick="closeDepositModal()">Cancel</button>
+        <button class="btn" id="confirmDepositBtn">Confirm Deposit</button>
       </div>
-    </div>
-    <div class="err" id="depErr"></div>
-    <div class="row2" style="margin-top:20px">
-      <button class="btn ghost" onclick="closeDepositModal()">Cancel</button>
-      <button class="btn" id="confirmDepositBtn">Confirm Deposit</button>
     </div>
   </div>
-</div>
 
-<script>
-/* ===== Dynamic Account & Data Key Setup ===== */
-const CURRENT_USER = "{{ user.username }}".replace(/[{}]/g, '').trim() || 'default_user';
-const STORAGE_KEY = `budget_buddy_db_${CURRENT_USER}`;
+  <script>
+    /* ===== Dynamic Account & Data Key Setup ===== */
+    const CURRENT_USER = "{{ user.username }}".replace(/[{}]/g, '').trim() || 'default_user';
+    const STORAGE_KEY = `budget_buddy_db_${CURRENT_USER}`;
 
-const SEED = {
-  "goals": [
-    {"accent": "#0D9488", "deadline": "Dec 2026", "icon": "💻", "id": 1, "name": "MacBook Air M3", "saved": 18200000, "target": 28000000},
-    {"accent": "#A78BFA", "deadline": "Mar 2027", "icon": "🗾", "id": 2, "name": "Japan Trip", "saved": 4500000, "target": 15000000},
-    {"accent": "#34D399", "deadline": "Done!", "icon": "🛡️", "id": 3, "name": "Emergency Fund", "saved": 10000000, "target": 10000000}
-  ],
-  "kpi": {"income": 4000000, "expense": 1191000},
-  "user": {"initials": CURRENT_USER[0] ? CURRENT_USER[0].toUpperCase() : 'U', "name": CURRENT_USER, "plan": "Student"}
-};
+    const SEED = {
+      "goals": [
+        { "accent": "#0D9488", "deadline": "Dec 2026", "icon": "💻", "id": 1, "name": "MacBook Air M3", "saved": 18200000, "target": 28000000 },
+        { "accent": "#A78BFA", "deadline": "Mar 2027", "icon": "🗾", "id": 2, "name": "Japan Trip", "saved": 4500000, "target": 15000000 },
+        { "accent": "#34D399", "deadline": "Done!", "icon": "🛡️", "id": 3, "name": "Emergency Fund", "saved": 10000000, "target": 10000000 }
+      ],
+      "kpi": { "income": 4000000, "expense": 1191000 },
+      "user": { "initials": CURRENT_USER[0] ? CURRENT_USER[0].toUpperCase() : 'U', "name": CURRENT_USER, "plan": "Student" }
+    };
 
-function loadStateFromStorage() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try { return JSON.parse(saved); } catch(e) { console.error(e); }
-  }
-  return JSON.parse(JSON.stringify(SEED));
-}
-
-function saveStateToStorage(state) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-const DB = loadStateFromStorage();
-let nextGoalId = DB.goals.length > 0 ? Math.max(...DB.goals.map(g => g.id), 0) + 1 : 1;
-let currentDepositGoalId = null;
-
-/* ===== Mock Fetch Handler ===== */
-function reply(obj, ok){ return Promise.resolve({ok: ok !== false, json: () => Promise.resolve(obj)}); }
-const nativeFetch = window.fetch;
-window.fetch = function(url, opts){
-  opts = opts || {}; const body = opts.body ? JSON.parse(opts.body) : {};
-  
-  if(url === '/api/state') return reply(DB);
-  
-  if(url === '/api/goals' && opts.method === 'POST'){
-    const name = (body.name || '').trim();
-    const target = Math.round(Number(body.target));
-    const saved = Math.round(Number(body.saved || 0));
-    if(!name) return reply({error:'Please enter a goal name'}, false);
-    if(!(target > 0)) return reply({error:'Target amount must be greater than 0'}, false);
-
-    DB.goals.push({
-      id: nextGoalId++,
-      name: name,
-      target: target,
-      saved: saved,
-      deadline: body.deadline || 'Dec 2026',
-      icon: body.icon || '🎯',
-      accent: body.accent || '#0D9488'
-    });
-    saveStateToStorage(DB);
-    return reply(DB);
-  }
-
-  if(url.indexOf('/api/goals/') === 0 && url.indexOf('/deposit') !== -1){
-    const parts = url.split('/');
-    const id = parseInt(parts[3], 10);
-    const g = DB.goals.find(x => x.id === id);
-    const amount = Math.round(Number(body.amount));
-    if(!amount || amount <= 0) return reply({error:'Please enter a valid deposit amount (> 0)'}, false);
-    if(g) {
-      g.saved += amount;
-      saveStateToStorage(DB);
+    function loadStateFromStorage() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try { return JSON.parse(saved); } catch (e) { console.error(e); }
+      }
+      return JSON.parse(JSON.stringify(SEED));
     }
-    return reply(DB);
-  }
-  return reply({error:'404 Not Found'}, false);
-};
-// Goals are persisted with the same authenticated SQLite state used by AI Coach.
-window.fetch = nativeFetch;
 
-/* ===== Render & Helpers ===== */
-const $ = s => document.querySelector(s);
-let S = null;
+    function saveStateToStorage(state) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
 
-const fmtVND = n => BB.compactAmount(n);
-const money = n => BB.formatMoney(n, {compact:true});
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-document.querySelectorAll('[data-base-amount]').forEach(button => {
-  button.textContent = `+${BB.formatMoney(Number(button.dataset.baseAmount), {compact:true})}`;
-});
+    const DB = loadStateFromStorage();
+    let nextGoalId = DB.goals.length > 0 ? Math.max(...DB.goals.map(g => g.id), 0) + 1 : 1;
+    let currentDepositGoalId = null;
 
-async function load(){
-  const r = await fetch('/api/state'); S = await r.json(); render();
-}
+    /* ===== Mock Fetch Handler ===== */
+    function reply(obj, ok) { return Promise.resolve({ ok: ok !== false, json: () => Promise.resolve(obj) }); }
+    const nativeFetch = window.fetch;
+    window.fetch = function (url, opts) {
+      opts = opts || {}; const body = opts.body ? JSON.parse(opts.body) : {};
 
-function render(){
-  if(!S) return;
-  BBNavBadges.update(S);
-  $('#uname').textContent = S.user.name; $('#uplan').textContent = S.user.plan; $('#avatar').textContent = S.user.initials;
-  
-  const saved = S.goals.reduce((s,g) => s + g.saved, 0);
-  const target = S.goals.reduce((s,g) => s + g.target, 0);
-  const done = S.goals.filter(g => g.saved >= g.target).length;
-  const monthly = Math.max(1500000, S.kpi.income - S.kpi.expense);
+      if (url === '/api/state') return reply(DB);
 
-  const cards = S.goals.map(g => {
-    const pct = Math.min(100, Math.round(g.saved / g.target * 100));
-    const remain = Math.max(0, g.target - g.saved);
-    const months = Math.max(1, Math.ceil(remain / monthly));
-    const isDone = remain === 0;
+      if (url === '/api/goals' && opts.method === 'POST') {
+        const name = (body.name || '').trim();
+        const target = Math.round(Number(body.target));
+        const saved = Math.round(Number(body.saved || 0));
+        if (!name) return reply({ error: 'Please enter a goal name' }, false);
+        if (!(target > 0)) return reply({ error: 'Target amount must be greater than 0' }, false);
 
-    return `<div class="card goal" style="--c:${g.accent}">
+        DB.goals.push({
+          id: nextGoalId++,
+          name: name,
+          target: target,
+          saved: saved,
+          deadline: body.deadline || 'Dec 2026',
+          icon: body.icon || '🎯',
+          accent: body.accent || '#0D9488'
+        });
+        saveStateToStorage(DB);
+        return reply(DB);
+      }
+
+      if (url.indexOf('/api/goals/') === 0 && url.indexOf('/deposit') !== -1) {
+        const parts = url.split('/');
+        const id = parseInt(parts[3], 10);
+        const g = DB.goals.find(x => x.id === id);
+        const amount = Math.round(Number(body.amount));
+        if (!amount || amount <= 0) return reply({ error: 'Please enter a valid deposit amount (> 0)' }, false);
+        if (g) {
+          g.saved += amount;
+          saveStateToStorage(DB);
+        }
+        return reply(DB);
+      }
+      return reply({ error: '404 Not Found' }, false);
+    };
+    // Goals are persisted with the same authenticated SQLite state used by AI Coach.
+    window.fetch = nativeFetch;
+
+    /* ===== Render & Helpers ===== */
+    const $ = s => document.querySelector(s);
+    let S = null;
+
+    const fmtVND = n => BB.compactAmount(n);
+    const money = n => BB.formatMoney(n, { compact: true });
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    document.querySelectorAll('[data-base-amount]').forEach(button => {
+      button.textContent = `+${BB.formatMoney(Number(button.dataset.baseAmount), { compact: true })}`;
+    });
+
+    async function load() {
+      const r = await fetch('/api/state'); S = await r.json(); render();
+    }
+
+    function render() {
+      if (!S) return;
+      BBNavBadges.update(S);
+      $('#uname').textContent = S.user.name; $('#uplan').textContent = S.user.plan; $('#avatar').textContent = S.user.initials;
+
+      const saved = S.goals.reduce((s, g) => s + g.saved, 0);
+      const target = S.goals.reduce((s, g) => s + g.target, 0);
+      const done = S.goals.filter(g => g.saved >= g.target).length;
+      const monthly = Math.max(1500000, S.kpi.income - S.kpi.expense);
+
+      const cards = S.goals.map(g => {
+        const pct = Math.min(100, Math.round(g.saved / g.target * 100));
+        const remain = Math.max(0, g.target - g.saved);
+        const months = Math.max(1, Math.ceil(remain / monthly));
+        const isDone = remain === 0;
+
+        return `<div class="card goal" style="--c:${g.accent}">
       <div>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <div class="tile" style="background:${g.accent}22;font-size:24px">${g.icon}</div>
-          ${isDone ? `<span class="badge" style="background:#D1FAE5;color:#059669">${BB.text('COMPLETE','HOÀN THÀNH')} &#10004;</span>` : `<span class="pct">${pct}%</span>`}
+          ${isDone ? `<span class="badge" style="background:#D1FAE5;color:#059669">${BB.text('COMPLETE', 'HOÀN THÀNH')} &#10004;</span>` : `<span class="pct">${pct}%</span>`}
         </div>
         <div class="nm">${esc(g.name)}</div>
-        <div class="dl">${BB.text('Deadline','Thời hạn')}: ${esc(g.deadline)}${g.account ? ` &middot; ${BB.text('Account','Tài khoản')}: ` + esc(g.account) : ''}</div>
+        <div class="dl">${BB.text('Deadline', 'Thời hạn')}: ${esc(g.deadline)}${g.account ? ` &middot; ${BB.text('Account', 'Tài khoản')}: ` + esc(g.account) : ''}</div>
         <div class="bar"><i style="width:${pct}%;background:${g.accent};box-shadow:0 0 10px ${g.accent}66"></i></div>
         <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:13px">
-          <span style="color:var(--muted)">${BB.text('Saved','Đã tích lũy')}: <b style="color:var(--text)">${money(g.saved)}</b></span>
-          <span style="color:var(--muted)">${BB.text('Target','Mục tiêu')}: <b style="color:var(--text)">${money(g.target)}</b></span>
+          <span style="color:var(--muted)">${BB.text('Saved', 'Đã tích lũy')}: <b style="color:var(--text)">${money(g.saved)}</b></span>
+          <span style="color:var(--muted)">${BB.text('Target', 'Mục tiêu')}: <b style="color:var(--text)">${money(g.target)}</b></span>
         </div>
       </div>
       <div>
         <div class="note" style="background:${g.accent}14;color:${g.accent}">
           ${isDone ? BB.text('🎉 Goal achieved! Great work, ', '🎉 Đã đạt mục tiêu! Tuyệt vời, ') + esc(S.user.name) + '.' : BB.text(`<b>${money(remain)}</b> to go &middot; ~${months} months`, `Còn <b>${money(remain)}</b> &middot; khoảng ${months} tháng`)}
         </div>
-        <button class="btn ghost sm" style="width:100%;margin-top:12px" onclick="openDepositModal(${g.id}, '${esc(g.name)}')">${isDone ? BB.text('Edit saved amount','Sửa số tiền đã nạp') : BB.text('+ Deposit Funds','+ Nạp vào mục tiêu')}</button>
+        <button class="btn ghost sm" style="width:100%;margin-top:12px" onclick="openDepositModal(${g.id}, '${esc(g.name)}')">${isDone ? BB.text('Edit saved amount', 'Sửa số tiền đã nạp') : BB.text('+ Deposit Funds', '+ Nạp vào mục tiêu')}</button>
       </div>
     </div>`;
-  }).join('');
+      }).join('');
 
-  $('#view').innerHTML = `<div class="goal-banner">
+      $('#view').innerHTML = `<div class="goal-banner">
       <div><div class="t">Total Saved Across Goals</div><div class="v">${money(saved)}</div></div>
-      <div style="text-align:right"><div class="t">${BB.text('of','trên')} ${money(target)}</div>
-      <div class="pill" style="margin-top:8px">&#127942; ${done} ${BB.text('of','trên')} ${S.goals.length} ${BB.text('completed','hoàn thành')}</div></div>
+      <div style="text-align:right"><div class="t">${BB.text('of', 'trên')} ${money(target)}</div>
+      <div class="pill" style="margin-top:8px">&#127942; ${done} ${BB.text('of', 'trên')} ${S.goals.length} ${BB.text('completed', 'hoàn thành')}</div></div>
     </div>
     <div class="grid g3">${cards}</div>`;
-}
+    }
 
-/* ===== Deposit Modal Handler ===== */
-function openDepositModal(id, name){
-  currentDepositGoalId = id;
-  const g = S.goals.find(x => x.id === id);
-  const hint = g && g.account ? BB.text(` (deducted from ${g.account})`, ` (sẽ trừ từ ${g.account})`) : '';
-  $('#depTitle').textContent = BB.text(`Deposit to: ${name}${hint}`, `Nạp vào: ${name}${hint}`);
-  $('#depAmount').value = '';
-  $('#depErr').textContent = '';
-  $('#depositOverlay').classList.add('open');
-  $('#depAmount').focus();
-}
+    /* ===== Deposit Modal Handler ===== */
+    function openDepositModal(id, name) {
+      currentDepositGoalId = id;
+      const g = S.goals.find(x => x.id === id);
+      const hint = g && g.account ? BB.text(` (deducted from ${g.account})`, ` (sẽ trừ từ ${g.account})`) : '';
+      $('#depTitle').textContent = BB.text(`Deposit to: ${name}${hint}`, `Nạp vào: ${name}${hint}`);
+      $('#depAmount').value = '';
+      $('#depErr').textContent = '';
+      $('#depositOverlay').classList.add('open');
+      $('#depAmount').focus();
+    }
 
-function closeDepositModal(){
-  $('#depositOverlay').classList.remove('open');
-  currentDepositGoalId = null;
-}
+    function closeDepositModal() {
+      $('#depositOverlay').classList.remove('open');
+      currentDepositGoalId = null;
+    }
 
-function setDepAmount(amt){ $('#depAmount').value = BB.inputValue(amt); }
+    function setDepAmount(amt) { $('#depAmount').value = BB.inputValue(amt); }
 
-$('#confirmDepositBtn').onclick = async () => {
-  const amt = BB.toBase(Number($('#depAmount').value));
-  $('#depErr').textContent = '';
-  try {
-    const r = await fetch(`/api/goals/${currentDepositGoalId}/deposit`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ amount: amt })
-    });
-    const res = await r.json();
-    if(!r.ok) throw new Error(res.error || 'Error depositing funds');
-    S = res;
-    closeDepositModal();
-    render();
-  } catch(e) {
-    $('#depErr').textContent = e.message;
-  }
-};
+    $('#confirmDepositBtn').onclick = async () => {
+      const amt = BB.toBase(Number($('#depAmount').value));
+      $('#depErr').textContent = '';
+      try {
+        const r = await fetch(`/api/goals/${currentDepositGoalId}/deposit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: amt })
+        });
+        const res = await r.json();
+        if (!r.ok) throw new Error(res.error || 'Error depositing funds');
+        S = res;
+        closeDepositModal();
+        render();
+      } catch (e) {
+        $('#depErr').textContent = e.message;
+      }
+    };
 
-/* ===== Goal Modal Handler ===== */
-function selectEmoji(char){ $('#gIcon').value = char; }
+    /* ===== Goal Modal Handler ===== */
+    function selectEmoji(char) { $('#gIcon').value = char; }
 
-function openModal(){
-  $('#gName').value = ''; $('#gTarget').value = ''; $('#gSaved').value = '';
-  $('#gDeadline').value = ''; $('#gIcon').value = '🎯'; $('#err').textContent = '';
-  $('#gAccount').innerHTML = '<option value="">Không liên kết tài khoản</option>' +
-    S.accounts.map(a => `<option value="${a.id}">${a.icon} ${esc(a.name)}</option>`).join('');
-  $('#overlay').classList.add('open'); $('#gName').focus();
-}
-function closeModal(){ $('#overlay').classList.remove('open'); }
+    function openModal() {
+      $('#gName').value = ''; $('#gTarget').value = ''; $('#gSaved').value = '';
+      $('#gDeadline').value = ''; $('#gIcon').value = '🎯'; $('#err').textContent = '';
+      $('#gAccount').innerHTML = '<option value="">Không liên kết tài khoản</option>' +
+        S.accounts.map(a => `<option value="${a.id}">${a.icon} ${esc(a.name)}</option>`).join('');
+      $('#overlay').classList.add('open'); $('#gName').focus();
+    }
+    function closeModal() { $('#overlay').classList.remove('open'); }
 
-$('#openModal').onclick = openModal;
-$('#cancelBtn').onclick = closeModal;
-$('#overlay').onclick = e => { if(e.target === $('#overlay')) closeModal(); };
-$('#depositOverlay').onclick = e => { if(e.target === $('#depositOverlay')) closeDepositModal(); };
+    $('#openModal').onclick = openModal;
+    $('#cancelBtn').onclick = closeModal;
+    $('#overlay').onclick = e => { if (e.target === $('#overlay')) closeModal(); };
+    $('#depositOverlay').onclick = e => { if (e.target === $('#depositOverlay')) closeDepositModal(); };
 
-$('#saveGoalBtn').onclick = async () => {
-  $('#err').textContent = '';
-  try {
-    const r = await fetch('/api/goals', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        name: $('#gName').value,
-        target: BB.toBase(Number($('#gTarget').value)),
-        saved: BB.toBase(Number($('#gSaved').value || 0)),
-        deadline: $('#gDeadline').value,
-        icon: $('#gIcon').value,
-        accent: $('#gColor').value,
-        account_id: $('#gAccount').value || null
-      })
-    });
-    const res = await r.json();
-    if(!r.ok) throw new Error(res.error || 'Error creating goal');
-    S = res.state;
-    closeModal();
-    render();
-  } catch(e) {
-    $('#err').textContent = e.message;
-  }
-};
+    $('#saveGoalBtn').onclick = async () => {
+      $('#err').textContent = '';
+      try {
+        const r = await fetch('/api/goals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: $('#gName').value,
+            target: BB.toBase(Number($('#gTarget').value)),
+            saved: BB.toBase(Number($('#gSaved').value || 0)),
+            deadline: $('#gDeadline').value,
+            icon: $('#gIcon').value,
+            accent: $('#gColor').value,
+            account_id: $('#gAccount').value || null
+          })
+        });
+        const res = await r.json();
+        if (!r.ok) throw new Error(res.error || 'Error creating goal');
+        S = res.state;
+        closeModal();
+        render();
+      } catch (e) {
+        $('#err').textContent = e.message;
+      }
+    };
 
-load();
-</script>
+    load();
+  </script>
 </body>
+
 </html>
