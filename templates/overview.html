@@ -211,7 +211,7 @@ canvas{max-width:100%}
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span> Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span>Smart Finance</span></div>
     </div>
     <nav class="nav" id="nav">
       <button data-tab="overview" data-nav-section="overview" class="active">&#127968; <span class="lbl">Overview</span></button>
@@ -447,6 +447,10 @@ const money = n => BB.formatMoney(n, {compact:true});
 const full  = n => BB.formatMoney(n);
 const dmy   = d => { const p = d.split('-'); return p[2] + '/' + p[1]; };
 const esc   = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const newestTransactionFirst = (a, b) =>
+  String(b.date || '').localeCompare(String(a.date || '')) ||
+  String(b.created_at || '').localeCompare(String(a.created_at || '')) ||
+  Number(b.id || 0) - Number(a.id || 0);
 
 async function load(){
   try {
@@ -494,6 +498,7 @@ async function load(){
 
 function render(){
   if(!S) return;
+  S.transactions = (S.transactions || []).slice().sort(newestTransactionFirst);
   charts.forEach(c => c.destroy()); charts = [];
   $('#pageTitle').textContent = 'Overview';
   const [periodYear, periodMonth] = S.period.split('-').map(Number);

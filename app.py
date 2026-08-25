@@ -438,7 +438,11 @@ def build_state(user, period=None):
     categories = Category.query.order_by(Category.id).all()
     transactions = (
         Transaction.query.filter_by(user_id=user.id)
-        .order_by(Transaction.date.desc(), Transaction.id.desc())
+        .order_by(
+            Transaction.date.desc(),
+            Transaction.created_at.desc(),
+            Transaction.id.desc(),
+        )
         .all()
     )
     month_transactions = [t for t in transactions if t.date.startswith(period)]
@@ -983,7 +987,11 @@ def manage_funding_source(account_id):
 def get_transactions():
     rows = (
         Transaction.query.filter_by(user_id=current_user.id)
-        .order_by(Transaction.date.desc(), Transaction.id.desc()).all()
+        .order_by(
+            Transaction.date.desc(),
+            Transaction.created_at.desc(),
+            Transaction.id.desc(),
+        ).all()
     )
     return jsonify([serialize_transaction(tx) for tx in rows])
 

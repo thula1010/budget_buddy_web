@@ -81,6 +81,38 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
         self.assertEqual(deleted.status_code, 200)
         self.assertEqual(deleted.get_json()["kpi"]["balance"], 2_800_000)
 
+    def test_transactions_are_sorted_by_date_then_creation_order(self):
+        self.signup("sorter", "sorter@example.com")
+        state = self.client.get("/api/state?period=2026-08").get_json()
+        wallet = next(a for a in state["accounts"] if a["name"] == "Personal Wallet")
+        food = next(c for c in state["categories"] if c["name"] == "Food & Drinks")
+
+        def add(merchant, transaction_date):
+            return self.client.post(
+                "/api/transactions",
+                json={
+                    "merchant": merchant,
+                    "amount": 1_000,
+                    "date": transaction_date,
+                    "type": "expense",
+                    "account_id": wallet["id"],
+                    "category_id": food["id"],
+                },
+            )
+
+        self.assertEqual(add("Same day first", "2026-08-20").status_code, 201)
+        self.assertEqual(add("Newest date", "2026-08-21").status_code, 201)
+        latest_response = add("Same day second", "2026-08-20")
+        self.assertEqual(latest_response.status_code, 201)
+
+        expected = ["Newest date", "Same day second", "Same day first"]
+        response_state = latest_response.get_json()["state"]
+        self.assertEqual([item["merchant"] for item in response_state["transactions"]], expected)
+
+        api_rows = self.client.get("/api/transactions").get_json()
+        self.assertEqual([item["merchant"] for item in api_rows], expected)
+        self.assertTrue(all(item.get("created_at") for item in api_rows))
+
     def test_validation_ai_fallback_and_ocr_configuration_error(self):
         self.signup("carol", "carol@example.com")
         state = self.client.get("/api/state").get_json()

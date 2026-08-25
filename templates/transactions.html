@@ -271,7 +271,7 @@ tr.txn:hover .del{opacity:1}
   </aside>
   <main class="main">
     <header class="topbar">
-      <div><h2 id="pageTitle">Transactions</h2><p id="pageSub"> All accounts synced</p></div>
+      <div><h2 id="pageTitle">Transactions</h2><p id="pageSub">July 2025 &middot; All accounts synced</p></div>
       <div style="display:flex;gap:12px;align-items:center">
         <div class="synced"><i class="pulse"></i> Synced</div>
         <button class="btn" id="openModal">+ Add Transaction</button>
@@ -442,6 +442,10 @@ const money = n => BB.formatMoney(n, {compact:true});
 const full  = n => BB.formatMoney(n);
 const dmy   = d => { if(!d) return ''; const p = d.split('-'); return (p[2]||'') + '/' + (p[1]||''); };
 const esc   = s => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const newestTransactionFirst = (a, b) =>
+  String(b.date || '').localeCompare(String(a.date || '')) ||
+  String(b.created_at || '').localeCompare(String(a.created_at || '')) ||
+  Number(b.id || 0) - Number(a.id || 0);
 
 async function load(){
   try {
@@ -488,6 +492,7 @@ async function load(){
 
 function render(){
   if(!S) return;
+  S.transactions = (S.transactions || []).slice().sort(newestTransactionFirst);
   $('#pageTitle').textContent = 'Transactions';
   const [periodYear, periodMonth] = S.period.split('-').map(Number);
   $('#pageSub').textContent = new Date(periodYear, periodMonth - 1, 1)
