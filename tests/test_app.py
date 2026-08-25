@@ -101,8 +101,7 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
 
         coach = self.client.post("/api/coach", json={"message": "Số dư của tôi?"}).get_json()
         self.assertEqual(coach["source"], "local")
-        # Tiếng Việt dùng dấu chấm ngăn cách hàng nghìn, khớp với giao diện.
-        self.assertIn("2.800.000", coach["reply"])
+        self.assertIn("2,800,000", coach["reply"])
 
         ocr = self.client.post(
             "/api/scan-receipt",
@@ -111,6 +110,58 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(ocr.status_code, 503)
         self.assertIn("OPENAI_API_KEY", ocr.get_json()["error"])
+
+    def test_coach_uses_question_language_and_returns_format_metadata(self):
+        self.signup("coachlang", "coachlang@example.com")
+
+        vietnamese = self.client.post(
+            "/api/coach", json={"message": "Tôi còn bao nhiêu tiền trong tài khoản?"}
+        ).get_json()
+        self.assertEqual(vietnamese["source"], "local")
+        self.assertEqual(vietnamese["language"], "vi")
+        self.assertEqual(vietnamese["format"], "markdown")
+        self.assertIn("Số dư hiện tại", vietnamese["reply"])
+
+        self.client.patch(
+            "/api/account/preferences",
+            json={"preferred_language": "vi", "preferred_currency": "VND"},
+        )
+        english = self.client.post(
+            "/api/coach", json={"message": "What are my account balances?"}
+        ).get_json()
+        self.assertEqual(english["language"], "en")
+        self.assertIn("Current balances", english["reply"])
+
+    def test_openai_coach_requests_safe_markdown_and_matching_currency(self):
+        self.signup("coachgpt", "coachgpt@example.com")
+        self.client.patch(
+            "/api/account/preferences",
+            json={"preferred_language": "en", "preferred_currency": "USD"},
+        )
+        captured = {}
+
+        def create_response(**kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(output_text="**Phân tích**\n\n- Chi tiêu đang trong giới hạn.")
+
+        fake_client = SimpleNamespace(
+            responses=SimpleNamespace(create=create_response)
+        )
+        with patch.object(app_module, "openai_client", return_value=fake_client):
+            response = self.client.post(
+                "/api/coach",
+                json={"message": "Tôi đã tiêu bao nhiêu cho mua sắm tuần qua?"},
+            )
+
+        payload = response.get_json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["source"], "openai")
+        self.assertEqual(payload["language"], "vi")
+        self.assertEqual(payload["format"], "markdown")
+        self.assertIn("Respond in Vietnamese", captured["instructions"])
+        self.assertIn("Convert them to USD", captured["instructions"])
+        self.assertIn("Never use HTML or BBCode", captured["instructions"])
+        self.assertIn("User question: Tôi đã tiêu", captured["input"])
 
     def test_balance_edit_persists_preserves_history_and_is_user_scoped(self):
         self.signup("erin", "erin@example.com")
@@ -220,8 +271,11 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
     def test_signup_requires_email_verification_when_enabled(self):
         sent = {}
 
-        def capture_email(to_email, username, verification_url):
-            sent.update(email=to_email, username=username, url=verification_url)
+        def capture_email(to_email, username, verification_url, **preferences):
+            sent.update(
+                email=to_email, username=username, url=verification_url,
+                preferences=preferences,
+            )
             return True
 
         app.config["EMAIL_VERIFICATION_REQUIRED"] = True
@@ -235,6 +289,8 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
             self.assertIn("/verify-email-pending", response.location)
             self.assertEqual(self.client.get(response.location).status_code, 200)
             self.assertEqual(sent["email"], "verify@example.com")
+            self.assertEqual(sent["preferences"]["language"], "en")
+            self.assertEqual(sent["preferences"]["currency"], "VND")
             self.assertEqual(self.client.get("/api/state").status_code, 302)
 
             blocked = self.client.post(
@@ -279,7 +335,56 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
         self.assertEqual(second.status_code, 201)
         self.assertEqual(third.status_code, 201)
         self.assertEqual(send_alert.call_count, 1)
+        self.assertFalse(first.get_json()["emailAlertSent"])
+        self.assertTrue(second.get_json()["emailAlertSent"])
+        self.assertFalse(third.get_json()["emailAlertSent"])
         self.assertEqual(send_alert.call_args.args[2], "Food & Drinks")
+        self.assertEqual(send_alert.call_args.kwargs["language"], "en")
+        self.assertEqual(send_alert.call_args.kwargs["currency"], "VND")
+
+    def test_language_and_currency_preferences_persist(self):
+        self.signup("locale_user", "locale@example.com")
+        updated = self.client.patch(
+            "/api/account/preferences",
+            json={"preferred_language": "vi", "preferred_currency": "USD"},
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.get_json()["preferred_language"], "vi")
+        self.assertEqual(updated.get_json()["preferred_currency"], "USD")
+
+        state = self.client.get("/api/state").get_json()
+        self.assertEqual(state["preferences"]["language"], "vi")
+        self.assertEqual(state["preferences"]["currency"], "USD")
+        page = self.client.get("/settings").get_data(as_text=True)
+        self.assertIn('"currency": "USD"', page)
+        self.assertIn('value="vi" selected', page)
+
+        bank = next(a for a in state["accounts"] if a["name"] == "MB Bank")
+        food = next(c for c in state["categories"] if c["name"] == "Food & Drinks")
+        payload = {
+            "date": "2026-08-08", "type": "expense",
+            "account_id": bank["id"], "category_id": food["id"],
+        }
+        with (
+            patch.object(app_module, "email_delivery_configured", return_value=True),
+            patch.object(app_module, "send_budget_alert_email", return_value=True) as alert,
+        ):
+            self.client.post(
+                "/api/transactions",
+                json={**payload, "merchant": "Locale first", "amount": 500_000},
+            )
+            crossed = self.client.post(
+                "/api/transactions",
+                json={**payload, "merchant": "Locale crossed", "amount": 150_000},
+            )
+        self.assertTrue(crossed.get_json()["emailAlertSent"])
+        self.assertEqual(alert.call_args.kwargs["language"], "vi")
+        self.assertEqual(alert.call_args.kwargs["currency"], "USD")
+
+        invalid = self.client.patch(
+            "/api/account/preferences", json={"preferred_currency": "EUR"}
+        )
+        self.assertEqual(invalid.status_code, 400)
 
     def test_weekly_summary_is_scoped_and_not_sent_twice(self):
         self.signup("weekly_user", "weekly@example.com")

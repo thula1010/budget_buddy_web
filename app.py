@@ -15,6 +15,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import inspect, text
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash, generate_password_hash
+from utils.email_templates import category_label
 
 try:
     from openai import OpenAI
@@ -56,6 +57,12 @@ app.config["EMAIL_VERIFICATION_REQUIRED"] = os.environ.get(
 app.config["EMAIL_VERIFICATION_MAX_AGE"] = int(
     os.environ.get("EMAIL_VERIFICATION_MAX_AGE", str(24 * 60 * 60))
 )
+try:
+    app.config["USD_VND_RATE"] = float(os.environ.get("USD_VND_RATE", "25000"))
+except ValueError:
+    app.config["USD_VND_RATE"] = 25000.0
+if app.config["USD_VND_RATE"] <= 0:
+    app.config["USD_VND_RATE"] = 25000.0
 os.makedirs(app.instance_path, exist_ok=True)
 
 db = SQLAlchemy(app)
@@ -74,8 +81,8 @@ class User(UserMixin, db.Model):
     weekly_email_enabled = db.Column(db.Boolean, nullable=False, default=True)
     budget_alerts_enabled = db.Column(db.Boolean, nullable=False, default=True)
     last_weekly_email_at = db.Column(db.DateTime, nullable=True)
-    language = db.Column(db.String(5), nullable=False, default="vi")
-    currency = db.Column(db.String(3), nullable=False, default="VND")
+    preferred_language = db.Column(db.String(2), nullable=False, default="en")
+    preferred_currency = db.Column(db.String(3), nullable=False, default="VND")
 
 
 class Account(db.Model):
@@ -129,24 +136,6 @@ class Goal(db.Model):
     accent = db.Column(db.String(10), nullable=False, default="#0D9488")
 
 
-class ChatSession(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
-    title = db.Column(db.String(120), nullable=False, default="")
-    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
-    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
-
-
-class ChatMessage(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    session_id = db.Column(db.Integer, db.ForeignKey("chat_session.id"), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
-    role = db.Column(db.String(10), nullable=False)  # "user" or "ai"
-    content = db.Column(db.Text, nullable=False)
-    source = db.Column(db.String(20), nullable=False, default="local")
-    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
-
-
 CATEGORY_SEED = [
     ("Food & Drinks", "expense", "🍜", "#B45309", "#FEF3C7"),
     ("Transport", "expense", "🛵", "#6D28D9", "#EDE9FE"),
@@ -171,73 +160,6 @@ BUDGET_SEED = {
 }
 
 
-SUPPORTED_LANGUAGES = ("vi", "en")
-DEFAULT_LANGUAGE = "vi"
-
-# Every amount is stored in VND. These rates only change how numbers are shown,
-# so the ledger stays consistent no matter which currency the user picks.
-# Value = how many VND one unit of the currency is worth.
-CURRENCY_RATES = {
-    "VND": 1.0,
-    "USD": 25400.0,
-    "EUR": 27500.0,
-    "JPY": 165.0,
-}
-CURRENCY_META = {
-    "VND": {"symbol": "\u20ab", "decimals": 0, "position": "suffix"},
-    "USD": {"symbol": "$", "decimals": 2, "position": "prefix"},
-    "EUR": {"symbol": "\u20ac", "decimals": 2, "position": "prefix"},
-    "JPY": {"symbol": "\u00a5", "decimals": 0, "position": "prefix"},
-}
-DEFAULT_CURRENCY = "VND"
-
-ACCOUNT_TYPES = {
-    "cash": "\U0001f4b5",
-    "bank": "\U0001f3e6",
-    "ewallet": "\U0001f4f1",
-    "credit": "\U0001f4b3",
-    "savings": "\U0001f416",
-    "investment": "\U0001f4c8",
-}
-MAX_ACCOUNTS_PER_USER = 30
-CHAT_TITLE_MAX = 60
-MAX_CHAT_SESSIONS_PER_USER = 100
-
-
-def normalize_language(value):
-    value = str(value or "").strip().lower()
-    return value if value in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
-
-
-def normalize_currency(value):
-    value = str(value or "").strip().upper()
-    return value if value in CURRENCY_RATES else DEFAULT_CURRENCY
-
-
-def convert_from_vnd(amount_vnd, currency):
-    currency = normalize_currency(currency)
-    return float(amount_vnd) / CURRENCY_RATES[currency]
-
-
-def format_money(amount_vnd, currency=DEFAULT_CURRENCY, language=DEFAULT_LANGUAGE):
-    """Render a VND amount in the currency the user picked, server side."""
-    currency = normalize_currency(currency)
-    meta = CURRENCY_META[currency]
-    value = convert_from_vnd(amount_vnd, currency)
-    text = f"{value:,.{meta['decimals']}f}"
-    if language == "vi" and currency == "VND":
-        text = text.replace(",", ".")
-    return f"{meta['symbol']}{text}" if meta["position"] == "prefix" else f"{text} {meta['symbol']}"
-
-
-def user_language(user):
-    return normalize_language(getattr(user, "language", None))
-
-
-def user_currency(user):
-    return normalize_currency(getattr(user, "currency", None))
-
-
 def seed_categories():
     for name, kind, icon, color, bg in CATEGORY_SEED:
         if not Category.query.filter_by(name=name).first():
@@ -258,8 +180,8 @@ def upgrade_user_schema():
         "weekly_email_enabled": "BOOLEAN NOT NULL DEFAULT TRUE",
         "budget_alerts_enabled": "BOOLEAN NOT NULL DEFAULT TRUE",
         "last_weekly_email_at": "TIMESTAMP NULL",
-        "language": "VARCHAR(5) NOT NULL DEFAULT 'vi'",
-        "currency": "VARCHAR(3) NOT NULL DEFAULT 'VND'",
+        "preferred_language": "VARCHAR(2) NOT NULL DEFAULT 'en'",
+        "preferred_currency": "VARCHAR(3) NOT NULL DEFAULT 'VND'",
     }
     with db.engine.begin() as connection:
         for column, definition in additions.items():
@@ -405,6 +327,26 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
+def user_preferences(user=None):
+    user = user or (current_user if current_user.is_authenticated else None)
+    language = getattr(user, "preferred_language", "en") if user else "en"
+    currency = getattr(user, "preferred_currency", "VND") if user else "VND"
+    if language not in {"en", "vi"}:
+        language = "en"
+    if currency not in {"VND", "USD"}:
+        currency = "VND"
+    return {
+        "language": language,
+        "currency": currency,
+        "usd_vnd_rate": app.config["USD_VND_RATE"],
+    }
+
+
+@app.context_processor
+def inject_app_preferences():
+    return {"app_preferences": user_preferences()}
+
+
 def utc_now_naive():
     return datetime.now(UTC).replace(tzinfo=None)
 
@@ -427,7 +369,15 @@ def verification_link(user):
 def deliver_verification_email(user):
     if not send_verification_email or not email_delivery_configured():
         return False
-    delivered = send_verification_email(user.email, user.username, verification_link(user))
+    preferences = user_preferences(user)
+    delivered = send_verification_email(
+        user.email,
+        user.username,
+        verification_link(user),
+        language=preferences["language"],
+        currency=preferences["currency"],
+        usd_vnd_rate=preferences["usd_vnd_rate"],
+    )
     if delivered:
         user.verification_sent_at = utc_now_naive()
         db.session.commit()
@@ -450,6 +400,12 @@ def account_transaction_delta(account):
 
 def account_balance(account):
     return float(account.opening_balance + account_transaction_delta(account))
+
+
+def display_money(amount, preferences):
+    if preferences["currency"] == "USD":
+        return f'${float(amount) / preferences["usd_vnd_rate"]:,.2f}'
+    return f'{float(amount):,.0f} ₫'
 
 
 def serialize_transaction(tx):
@@ -536,33 +492,30 @@ def build_state(user, period=None):
     total_balance = sum(account_balance(a) for a in accounts)
     savings_rate = round((income - expense) / income * 100) if income else 0
 
-    language = user_language(user)
-    currency = user_currency(user)
-
-    def money(amount):
-        return format_money(amount, currency, language)
-
+    preferences = user_preferences(user)
     notifications = []
     over_budget = sorted((b for b in budgets if b["over"] > 0), key=lambda b: b["over"], reverse=True)
     if over_budget:
         b = over_budget[0]
         notifications.append({
-            "id": 1, "kind": "warn",
-            "ago": "Hiện tại" if language == "vi" else "Now",
+            "id": 1,
+            "kind": "warn",
+            "ago": "Now" if preferences["language"] == "en" else "Hiện tại",
             "text": (
-                f'{b["category"]} đã vượt ngân sách {money(b["over"])}'
-                if language == "vi"
-                else f'{b["category"]} is over budget by {money(b["over"])}'
+                f'{category_label(b["category"], "en")} is over budget by {display_money(b["over"], preferences)}'
+                if preferences["language"] == "en"
+                else f'{category_label(b["category"], "vi")} đã vượt ngân sách {display_money(b["over"], preferences)}'
             ),
         })
     if transactions:
         notifications.append({
-            "id": 2, "kind": "done",
-            "ago": "Mới nhất" if language == "vi" else "Latest",
+            "id": 2,
+            "kind": "done",
+            "ago": "Latest" if preferences["language"] == "en" else "Mới nhất",
             "text": (
-                f'Đã đồng bộ giao dịch “{transactions[0].merchant}”'
-                if language == "vi"
-                else f'Synced transaction “{transactions[0].merchant}”'
+                f'Transaction “{transactions[0].merchant}” was synced'
+                if preferences["language"] == "en"
+                else f'Đã đồng bộ giao dịch “{transactions[0].merchant}”'
             ),
         })
 
@@ -572,21 +525,9 @@ def build_state(user, period=None):
             "name": user.username,
             "initials": user.username[:2].upper(),
             "plan": "Student",
-            "language": language,
-            "currency": currency,
+            "email": user.email,
         },
-        "prefs": {
-            "language": language,
-            "currency": currency,
-            "languages": list(SUPPORTED_LANGUAGES),
-            "currencies": [
-                {"code": code, "rate": CURRENCY_RATES[code], **CURRENCY_META[code]}
-                for code in CURRENCY_RATES
-            ],
-        },
-        "account_types": [
-            {"type": name, "icon": icon} for name, icon in ACCOUNT_TYPES.items()
-        ],
+        "preferences": preferences,
         "accounts": [
             {
                 "id": a.id, "name": a.name, "type": a.type, "icon": a.icon,
@@ -614,86 +555,8 @@ def build_state(user, period=None):
     }
 
 
-# Bản dịch cho mọi thông báo lỗi/flash gửi về phía người dùng.
-UI_MESSAGES = {
-    "Tên đăng nhập hoặc mật khẩu không chính xác!": "Incorrect username or password.",
-    "Vui lòng xác minh email trước khi đăng nhập.": "Please verify your email before signing in.",
-    "Vui lòng nhập đầy đủ thông tin!": "Please fill in every field.",
-    "Địa chỉ email không hợp lệ!": "That email address is not valid.",
-    "Mật khẩu phải có ít nhất 8 ký tự!": "Your password must be at least 8 characters.",
-    "Mật khẩu nhập lại không khớp!": "The two passwords do not match.",
-    "Tên đăng nhập hoặc email đã tồn tại!": "That username or email is already taken.",
-    "Đã gửi email xác minh. Vui lòng kiểm tra hộp thư của bạn.": "Verification email sent. Please check your inbox.",
-    "Vui lòng đợi 60 giây trước khi gửi lại.": "Please wait 60 seconds before requesting another email.",
-    "Đã gửi lại email xác minh.": "Verification email sent again.",
-    "Chưa gửi được email. Vui lòng thử lại sau.": "The email could not be sent. Please try again later.",
-    "Liên kết xác minh đã hết hạn. Vui lòng yêu cầu liên kết mới.": "That verification link has expired. Please request a new one.",
-    "Liên kết xác minh không hợp lệ.": "That verification link is not valid.",
-    "Email đã được xác minh thành công.": "Your email has been verified.",
-    "Giá trị tùy chọn không hợp lệ.": "That preference value is not valid.",
-    "Ngôn ngữ không được hỗ trợ.": "That language is not supported.",
-    "Đơn vị tiền tệ không được hỗ trợ.": "That currency is not supported.",
-    'Vui lòng nhập chính xác "DELETE" để xác nhận.': 'Please type "DELETE" exactly to confirm.',
-    "Mật khẩu không chính xác.": "Incorrect password.",
-    "Không thể xóa tài khoản lúc này. Vui lòng thử lại.": "The account could not be deleted right now. Please try again.",
-    "Số dư không hợp lệ.": "That balance is not valid.",
-    "Số dư phải là số không âm.": "The balance must be zero or more.",
-    "Không tìm thấy tài khoản.": "Account not found.",
-    "Vui lòng nhập tên tài khoản.": "Please enter an account name.",
-    "Tên tài khoản tối đa 100 ký tự.": "Account names can be at most 100 characters.",
-    "Loại tài khoản không hợp lệ.": "That account type is not valid.",
-    "Số dư ban đầu không hợp lệ.": "That opening balance is not valid.",
-    "Số dư ban đầu phải là số không âm.": "The opening balance must be zero or more.",
-    "Tên tài khoản đã tồn tại.": "You already have an account with that name.",
-    "Không thể tạo tài khoản lúc này.": "The account could not be created right now.",
-    "Không thể cập nhật tài khoản lúc này.": "The account could not be updated right now.",
-    "Cần giữ lại ít nhất một tài khoản.": "You need to keep at least one account.",
-    "Tài khoản nhận chuyển không hợp lệ.": "That destination account is not valid.",
-    "Tài khoản này còn giao dịch. Hãy chọn một tài khoản khác để chuyển lịch sử sang.":
-        "This account still has transactions. Pick another account to move them to.",
-    "Không thể xóa tài khoản lúc này.": "The account could not be deleted right now.",
-    "Dữ liệu giao dịch không hợp lệ.": "That transaction data is not valid.",
-    "Vui lòng nhập tên giao dịch.": "Please enter a merchant or description.",
-    "Số tiền phải lớn hơn 0.": "The amount must be greater than 0.",
-    "Ngày giao dịch không hợp lệ.": "That transaction date is not valid.",
-    "Tài khoản, danh mục hoặc loại giao dịch không hợp lệ.":
-        "The account, category or transaction type is not valid.",
-    "Không tìm thấy giao dịch.": "Transaction not found.",
-    "Không tìm thấy đoạn chat.": "Conversation not found.",
-    "Tiêu đề không được để trống.": "The title cannot be empty.",
-    "Vui lòng nhập câu hỏi.": "Please type a question.",
-    "Câu hỏi quá dài (tối đa 4000 ký tự).": "That question is too long (4000 characters max).",
-    "Vui lòng chọn ảnh hóa đơn.": "Please choose a receipt image.",
-    "Chỉ hỗ trợ ảnh JPG, PNG hoặc WebP.": "Only JPG, PNG and WebP images are supported.",
-    "OCR AI chưa được cấu hình. Hãy đặt biến OPENAI_API_KEY.":
-        "Receipt OCR is not configured. Set the OPENAI_API_KEY variable.",
-    "Ảnh hóa đơn trống.": "That receipt image is empty.",
-    "Không thể đọc hóa đơn này. Hãy chụp rõ toàn bộ hóa đơn và thử lại.":
-        "This receipt could not be read. Photograph the whole receipt clearly and try again.",
-    "Dữ liệu ngân sách không hợp lệ.": "That budget data is not valid.",
-    "Hạn mức phải lớn hơn 0.": "The limit must be greater than 0.",
-    "Danh mục không hợp lệ.": "That category is not valid.",
-    "Số tiền mục tiêu không hợp lệ.": "That goal amount is not valid.",
-    "Thông tin mục tiêu không hợp lệ.": "That goal information is not valid.",
-    "Không tìm thấy mục tiêu.": "Goal not found.",
-    "Số tiền không hợp lệ.": "That amount is not valid.",
-    "Số tiền phải khác 0.": "The amount cannot be 0.",
-    "Số tiền rút vượt quá số đã nạp.": "You cannot withdraw more than you have saved.",
-}
-
-
-def ui_text(message):
-    """Dịch thông báo sang ngôn ngữ người dùng đang chọn (mặc định tiếng Việt)."""
-    try:
-        if current_user.is_authenticated and user_language(current_user) == "en":
-            return UI_MESSAGES.get(message, message)
-    except Exception:
-        pass
-    return message
-
-
 def json_error(message, status=400):
-    return jsonify({"error": ui_text(message)}), status
+    return jsonify({"error": message}), status
 
 
 def openai_client():
@@ -709,104 +572,64 @@ def extract_json(text):
     return json.loads(text)
 
 
-def local_coach_reply(message, state, language=DEFAULT_LANGUAGE, currency=DEFAULT_CURRENCY):
+def coach_response_language(message, preferred_language="en"):
+    """Use the question's language, falling back to the saved UI preference."""
+    normalized = f" {str(message or '').strip().lower()} "
+    if re.search(r"[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]", normalized):
+        return "vi"
+    vietnamese_terms = (
+        " bao nhieu ", " cua toi ", " toi da ", " chi tieu ", " mua sam ",
+        " ngan sach ", " tai khoan ", " so du ", " muc tieu ", " tiet kiem ",
+        " thang nay ", " tuan qua ",
+    )
+    if any(term in normalized for term in vietnamese_terms):
+        return "vi"
+    if re.search(r"\b(what|how|why|when|where|which|spent|spending|budget|balance|account|goal|save|month|week)\b", normalized):
+        return "en"
+    return preferred_language if preferred_language in {"en", "vi"} else "en"
+
+
+def local_coach_reply(message, state):
     query = message.lower()
     kpi = state["kpi"]
-    vi = language != "en"
-
-    def money(amount):
-        return format_money(amount, currency, language)
-
-    if any(word in query for word in ("số dư", "so du", "tài khoản", "tai khoan", "balance", "account")):
-        items = ", ".join(f'{a["name"]}: {money(a["balance"])}' for a in state["accounts"])
-        if vi:
-            return f'Số dư hiện tại: {items}. Tổng cộng {money(kpi["balance"])}.'
-        return f'Current balances: {items}. Total {money(kpi["balance"])}.'
-    if any(word in query for word in ("ngân sách", "ngan sach", "vượt", "vuot", "budget", "over")):
+    preferences = state["preferences"]
+    english = coach_response_language(message, preferences["language"]) == "en"
+    money = lambda amount: display_money(amount, preferences)
+    if any(word in query for word in ("balance", "account", "số dư", "so du", "tài khoản", "tai khoan")):
+        items = "\n".join(f'- {a["name"]}: {money(a["balance"])}' for a in state["accounts"])
+        return (
+            f'**Current balances**\n\n{items}\n\n**Total:** {money(kpi["balance"])}.'
+            if english else f'**Số dư hiện tại**\n\n{items}\n\n**Tổng cộng:** {money(kpi["balance"])}.'
+        )
+    if any(word in query for word in ("budget", "over", "ngân sách", "ngan sach", "vượt", "vuot")):
         worst = max(state["budgets"], key=lambda b: b["pct"], default=None)
         if not worst or not worst["spent"]:
-            return (
-                "Tháng này chưa có khoản chi nào để đánh giá ngân sách."
-                if vi else "There is no spending this month to review against your budgets."
-            )
-        if vi:
-            action = "Dừng các khoản không thiết yếu trong nhóm này" if worst["over"] else "Giữ mức chi còn lại dưới hạn mức"
-            return f'{worst["category"]} đang ở mức {worst["pct"]}% ngân sách. {action}.'
-        action = "Pause non-essential spending in this category" if worst["over"] else "Keep the rest of the month under the limit"
-        return f'{worst["category"]} is at {worst["pct"]}% of its budget. {action}.'
-    if any(word in query for word in ("mục tiêu", "muc tieu", "goal", "tiết kiệm", "tiet kiem", "saving")):
+            return "There is no spending to assess this month." if english else "Tháng này chưa có khoản chi nào để đánh giá ngân sách."
+        if english:
+            action = "Pause non-essential purchases in this category" if worst["over"] else "Keep the remaining spending below the limit"
+            return f'{worst["category"]} is at {worst["pct"]}% of its budget. {action}.'
+        action = "Dừng các khoản không thiết yếu trong nhóm này" if worst["over"] else "Giữ mức chi còn lại dưới hạn mức"
+        return f'{worst["category"]} đang ở mức {worst["pct"]}% ngân sách. {action}.'
+    if any(word in query for word in ("mục tiêu", "muc tieu", "goal", "tiết kiệm", "tiet kiem")):
         if not state["goals"]:
-            return (
-                "Bạn chưa có mục tiêu tiết kiệm. Hãy tạo một mục tiêu có số tiền và thời hạn cụ thể."
-                if vi else "You have no savings goal yet. Create one with a clear amount and deadline."
-            )
+            return "You do not have a savings goal yet. Create one with a target amount and deadline." if english else "Bạn chưa có mục tiêu tiết kiệm. Hãy tạo một mục tiêu có số tiền và thời hạn cụ thể."
         goal = min(state["goals"], key=lambda g: max(0, g["target"] - g["saved"]))
         remaining = max(0, goal["target"] - goal["saved"])
-        if vi:
-            return f'“{goal["name"]}” còn {money(remaining)}. Hãy dành một khoản cố định ngay sau mỗi lần nhận thu nhập.'
-        return f'“{goal["name"]}” still needs {money(remaining)}. Set aside a fixed amount right after every payday.'
+        return (
+            f'“{goal["name"]}” needs {money(remaining)} more. Set aside a fixed amount after each income payment.'
+            if english else f'“{goal["name"]}” còn {money(remaining)}. Hãy dành một khoản cố định ngay sau mỗi lần nhận thu nhập.'
+        )
     if kpi["income"] <= 0:
-        if vi:
-            return (
-                f'Tháng này bạn đã chi {money(kpi["expense"])} nhưng chưa ghi nhận thu nhập. '
-                "Hãy thêm thu nhập để AI tính tỷ lệ tiết kiệm chính xác."
-            )
         return (
-            f'You spent {money(kpi["expense"])} this month with no income recorded yet. '
-            "Add your income so the savings rate can be calculated."
+            f'You have spent {money(kpi["expense"])} this month without recorded income. Add income so the savings rate is accurate.'
+            if english else f'Tháng này bạn đã chi {money(kpi["expense"])} nhưng chưa ghi nhận thu nhập. Hãy thêm thu nhập để AI tính tỷ lệ tiết kiệm chính xác.'
         )
-    if vi:
-        return (
-            f'Tháng này bạn thu {money(kpi["income"])}, chi {money(kpi["expense"])} '
-            f'và tỷ lệ tiết kiệm là {kpi["savings_rate"]}%. Ưu tiên giảm danh mục chi lớn nhất trước.'
-        )
+    if english:
+        return f'This month you earned {money(kpi["income"])}, spent {money(kpi["expense"])}, and saved {kpi["savings_rate"]}%. Reduce the largest spending category first.'
     return (
-        f'This month you earned {money(kpi["income"])}, spent {money(kpi["expense"])} '
-        f'and saved {kpi["savings_rate"]}%. Start by trimming your largest spending category.'
+        f'Tháng này bạn thu {money(kpi["income"])}, chi {money(kpi["expense"])} '
+        f'và tỷ lệ tiết kiệm là {kpi["savings_rate"]}%. Ưu tiên giảm danh mục chi lớn nhất trước.'
     )
-
-
-def chat_title_from(message):
-    text = " ".join(str(message or "").split())
-    if len(text) <= CHAT_TITLE_MAX:
-        return text or "New chat"
-    return text[: CHAT_TITLE_MAX - 1].rstrip() + "\u2026"
-
-
-def serialize_chat_session(session, message_count=None):
-    return {
-        "id": session.id,
-        "title": session.title or "New chat",
-        "created_at": session.created_at.isoformat(timespec="seconds"),
-        "updated_at": session.updated_at.isoformat(timespec="seconds"),
-        "message_count": message_count if message_count is not None else
-        ChatMessage.query.filter_by(session_id=session.id).count(),
-    }
-
-
-def serialize_chat_message(message):
-    return {
-        "id": message.id,
-        "session_id": message.session_id,
-        "role": message.role,
-        "from": "me" if message.role == "user" else "ai",
-        "text": message.content,
-        "source": message.source,
-        "created_at": message.created_at.isoformat(timespec="seconds"),
-    }
-
-
-def prune_chat_sessions(user_id):
-    """Keep the history bounded so one account cannot grow without limit."""
-    extra = (
-        ChatSession.query.filter_by(user_id=user_id)
-        .order_by(ChatSession.updated_at.desc(), ChatSession.id.desc())
-        .offset(MAX_CHAT_SESSIONS_PER_USER)
-        .all()
-    )
-    for session in extra:
-        ChatMessage.query.filter_by(session_id=session.id).delete(synchronize_session=False)
-        db.session.delete(session)
 
 
 @app.route("/login")
@@ -820,10 +643,10 @@ def login():
 def api_login():
     user = User.query.filter_by(username=request.form.get("username", "").strip()).first()
     if not user or not check_password_hash(user.password_hash, request.form.get("password", "")):
-        flash(ui_text("Tên đăng nhập hoặc mật khẩu không chính xác!"), "error")
+        flash("Tên đăng nhập hoặc mật khẩu không chính xác!", "error")
         return redirect(url_for("login"))
     if app.config["EMAIL_VERIFICATION_REQUIRED"] and not user.email_verified:
-        flash(ui_text("Vui lòng xác minh email trước khi đăng nhập."), "error")
+        flash("Vui lòng xác minh email trước khi đăng nhập.", "error")
         return redirect(url_for("verify_email_pending", email=user.email))
     login_user(user)
     ensure_user_data(user)
@@ -835,20 +658,26 @@ def api_signup():
     username = request.form.get("username", "").strip()
     email = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "")
+    preferred_language = request.form.get("preferred_language", "en")
+    preferred_currency = request.form.get("preferred_currency", "VND")
+    if preferred_language not in {"en", "vi"}:
+        preferred_language = "en"
+    if preferred_currency not in {"VND", "USD"}:
+        preferred_currency = "VND"
     if not username or not email or not password:
-        flash(ui_text("Vui lòng nhập đầy đủ thông tin!"), "error")
+        flash("Vui lòng nhập đầy đủ thông tin!", "error")
         return redirect(url_for("login"))
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        flash(ui_text("Địa chỉ email không hợp lệ!"), "error")
+        flash("Địa chỉ email không hợp lệ!", "error")
         return redirect(url_for("login"))
     if len(password) < 8:
-        flash(ui_text("Mật khẩu phải có ít nhất 8 ký tự!"), "error")
+        flash("Mật khẩu phải có ít nhất 8 ký tự!", "error")
         return redirect(url_for("login"))
     if password != request.form.get("confirm_password", ""):
-        flash(ui_text("Mật khẩu nhập lại không khớp!"), "error")
+        flash("Mật khẩu nhập lại không khớp!", "error")
         return redirect(url_for("login"))
     if User.query.filter((User.username == username) | (User.email == email)).first():
-        flash(ui_text("Tên đăng nhập hoặc email đã tồn tại!"), "error")
+        flash("Tên đăng nhập hoặc email đã tồn tại!", "error")
         return redirect(url_for("login"))
     verification_required = app.config["EMAIL_VERIFICATION_REQUIRED"]
     user = User(
@@ -857,16 +686,18 @@ def api_signup():
         password_hash=generate_password_hash(password),
         email_verified=not verification_required,
         email_verified_at=utc_now_naive() if not verification_required else None,
+        preferred_language=preferred_language,
+        preferred_currency=preferred_currency,
     )
     db.session.add(user)
     db.session.commit()
     ensure_user_data(user)
     if verification_required:
         if deliver_verification_email(user):
-            flash(ui_text("Đã gửi email xác minh. Vui lòng kiểm tra hộp thư của bạn."), "success")
+            flash("Đã gửi email xác minh. Vui lòng kiểm tra hộp thư của bạn.", "success")
         else:
             flash(
-                ui_text("Tài khoản đã được tạo nhưng chưa gửi được email xác minh. Hãy thử gửi lại."),
+                "Tài khoản đã được tạo nhưng chưa gửi được email xác minh. Hãy thử gửi lại.",
                 "error",
             )
         return redirect(url_for("verify_email_pending", email=user.email))
@@ -890,12 +721,12 @@ def resend_verification():
         flash(generic_message, "success")
         return redirect(url_for("verify_email_pending", email=email))
     if user.verification_sent_at and utc_now_naive() - user.verification_sent_at < timedelta(seconds=60):
-        flash(ui_text("Vui lòng đợi 60 giây trước khi gửi lại."), "error")
+        flash("Vui lòng đợi 60 giây trước khi gửi lại.", "error")
         return redirect(url_for("verify_email_pending", email=email))
     if deliver_verification_email(user):
-        flash(ui_text("Đã gửi lại email xác minh."), "success")
+        flash("Đã gửi lại email xác minh.", "success")
     else:
-        flash(ui_text("Chưa gửi được email. Vui lòng thử lại sau."), "error")
+        flash("Chưa gửi được email. Vui lòng thử lại sau.", "error")
     return redirect(url_for("verify_email_pending", email=email))
 
 
@@ -908,14 +739,14 @@ def verify_email(token):
             max_age=app.config["EMAIL_VERIFICATION_MAX_AGE"],
         )
     except SignatureExpired:
-        flash(ui_text("Liên kết xác minh đã hết hạn. Vui lòng yêu cầu liên kết mới."), "error")
+        flash("Liên kết xác minh đã hết hạn. Vui lòng yêu cầu liên kết mới.", "error")
         return redirect(url_for("verify_email_pending"))
     except BadSignature:
-        flash(ui_text("Liên kết xác minh không hợp lệ."), "error")
+        flash("Liên kết xác minh không hợp lệ.", "error")
         return redirect(url_for("login"))
     user = db.session.get(User, payload.get("user_id"))
     if not user or user.email != payload.get("email"):
-        flash(ui_text("Liên kết xác minh không hợp lệ."), "error")
+        flash("Liên kết xác minh không hợp lệ.", "error")
         return redirect(url_for("login"))
     if not user.email_verified:
         user.email_verified = True
@@ -923,7 +754,7 @@ def verify_email(token):
         db.session.commit()
     ensure_user_data(user)
     login_user(user)
-    flash(ui_text("Email đã được xác minh thành công."), "success")
+    flash("Email đã được xác minh thành công.", "success")
     return redirect(url_for("overview"))
 
 
@@ -979,23 +810,22 @@ def update_account_preferences():
             if not isinstance(data[field], bool):
                 return json_error("Giá trị tùy chọn không hợp lệ.")
             setattr(current_user, field, data[field])
-    if "language" in data:
-        language = str(data.get("language") or "").strip().lower()
-        if language not in SUPPORTED_LANGUAGES:
-            return json_error("Ngôn ngữ không được hỗ trợ.")
-        current_user.language = language
-    if "currency" in data:
-        currency = str(data.get("currency") or "").strip().upper()
-        if currency not in CURRENCY_RATES:
-            return json_error("Đơn vị tiền tệ không được hỗ trợ.")
-        current_user.currency = currency
+    if "preferred_language" in data:
+        if data["preferred_language"] not in {"en", "vi"}:
+            return json_error("Ngôn ngữ không hợp lệ.")
+        current_user.preferred_language = data["preferred_language"]
+    if "preferred_currency" in data:
+        if data["preferred_currency"] not in {"VND", "USD"}:
+            return json_error("Đơn vị tiền tệ không hợp lệ.")
+        current_user.preferred_currency = data["preferred_currency"]
     db.session.commit()
     return jsonify({
         "success": True,
         "weekly_email_enabled": current_user.weekly_email_enabled,
         "budget_alerts_enabled": current_user.budget_alerts_enabled,
-        "language": user_language(current_user),
-        "currency": user_currency(current_user),
+        "preferred_language": current_user.preferred_language,
+        "preferred_currency": current_user.preferred_currency,
+        "usd_vnd_rate": app.config["USD_VND_RATE"],
     })
 
 
@@ -1011,8 +841,6 @@ def delete_account():
     user_id = current_user.id
     logout_user()
     try:
-        ChatMessage.query.filter_by(user_id=user_id).delete(synchronize_session=False)
-        ChatSession.query.filter_by(user_id=user_id).delete(synchronize_session=False)
         Transaction.query.filter_by(user_id=user_id).delete(synchronize_session=False)
         Budget.query.filter_by(user_id=user_id).delete(synchronize_session=False)
         Goal.query.filter_by(user_id=user_id).delete(synchronize_session=False)
@@ -1054,173 +882,6 @@ def update_account_balance(account_id):
     db.session.commit()
     return jsonify({
         "success": True,
-        "state": build_state(current_user, data.get("period")),
-    })
-
-
-@app.route("/api/accounts", methods=["GET"])
-@login_required
-def list_accounts():
-    accounts = Account.query.filter_by(user_id=current_user.id).order_by(Account.id).all()
-    return jsonify({
-        "accounts": [
-            {
-                "id": a.id, "name": a.name, "type": a.type, "icon": a.icon,
-                "balance": account_balance(a),
-                "opening_balance": float(a.opening_balance),
-                "transaction_count": Transaction.query.filter_by(
-                    user_id=current_user.id, account_id=a.id
-                ).count(),
-            }
-            for a in accounts
-        ],
-        "types": [{"type": name, "icon": icon} for name, icon in ACCOUNT_TYPES.items()],
-    })
-
-
-@app.route("/api/accounts", methods=["POST"])
-@login_required
-def create_account():
-    data = request.get_json(silent=True) or {}
-    name = " ".join(str(data.get("name", "")).split())
-    if not name:
-        return json_error("Vui lòng nhập tên tài khoản.")
-    if len(name) > 100:
-        return json_error("Tên tài khoản tối đa 100 ký tự.")
-
-    account_type = str(data.get("type", "")).strip().lower()
-    if account_type not in ACCOUNT_TYPES:
-        return json_error("Loại tài khoản không hợp lệ.")
-
-    icon = str(data.get("icon") or "").strip() or ACCOUNT_TYPES[account_type]
-    if len(icon) > 10:
-        icon = icon[:10]
-
-    try:
-        opening_balance = float(data.get("opening_balance", 0) or 0)
-    except (TypeError, ValueError):
-        return json_error("Số dư ban đầu không hợp lệ.")
-    if not math.isfinite(opening_balance) or opening_balance < 0:
-        return json_error("Số dư ban đầu phải là số không âm.")
-
-    existing = Account.query.filter_by(user_id=current_user.id).all()
-    if len(existing) >= MAX_ACCOUNTS_PER_USER:
-        return json_error(f"Bạn chỉ có thể tạo tối đa {MAX_ACCOUNTS_PER_USER} tài khoản.")
-    if any(a.name.lower() == name.lower() for a in existing):
-        return json_error("Tên tài khoản đã tồn tại.")
-
-    account = Account(
-        user_id=current_user.id, name=name, type=account_type,
-        icon=icon, opening_balance=round(opening_balance),
-    )
-    db.session.add(account)
-    try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        app.logger.exception("Account creation failed")
-        return json_error("Không thể tạo tài khoản lúc này.", 500)
-    return jsonify({
-        "success": True,
-        "account_id": account.id,
-        "state": build_state(current_user, data.get("period")),
-    }), 201
-
-
-@app.route("/api/accounts/<int:account_id>", methods=["PATCH"])
-@login_required
-def update_account(account_id):
-    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first()
-    if not account:
-        return json_error("Không tìm thấy tài khoản.", 404)
-    data = request.get_json(silent=True) or {}
-
-    if "name" in data:
-        name = " ".join(str(data.get("name", "")).split())
-        if not name:
-            return json_error("Vui lòng nhập tên tài khoản.")
-        if len(name) > 100:
-            return json_error("Tên tài khoản tối đa 100 ký tự.")
-        clash = Account.query.filter(
-            Account.user_id == current_user.id, Account.id != account.id
-        ).all()
-        if any(a.name.lower() == name.lower() for a in clash):
-            return json_error("Tên tài khoản đã tồn tại.")
-        account.name = name
-
-    if "type" in data:
-        account_type = str(data.get("type", "")).strip().lower()
-        if account_type not in ACCOUNT_TYPES:
-            return json_error("Loại tài khoản không hợp lệ.")
-        account.type = account_type
-
-    if "icon" in data:
-        icon = str(data.get("icon") or "").strip() or ACCOUNT_TYPES[account.type]
-        account.icon = icon[:10]
-
-    try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        app.logger.exception("Account update failed")
-        return json_error("Không thể cập nhật tài khoản lúc này.", 500)
-    return jsonify({"success": True, "state": build_state(current_user, data.get("period"))})
-
-
-@app.route("/api/accounts/<int:account_id>", methods=["DELETE"])
-@login_required
-def remove_account(account_id):
-    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first()
-    if not account:
-        return json_error("Không tìm thấy tài khoản.", 404)
-    if Account.query.filter_by(user_id=current_user.id).count() <= 1:
-        return json_error("Cần giữ lại ít nhất một tài khoản.")
-
-    data = request.get_json(silent=True) or {}
-    transaction_count = Transaction.query.filter_by(
-        user_id=current_user.id, account_id=account.id
-    ).count()
-
-    move_to = data.get("move_to")
-    target = None
-    if move_to is not None:
-        try:
-            target = Account.query.filter_by(
-                id=int(move_to), user_id=current_user.id
-            ).first()
-        except (TypeError, ValueError):
-            target = None
-        if not target or target.id == account.id:
-            return json_error("Tài khoản nhận chuyển không hợp lệ.")
-
-    if transaction_count and not target:
-        return json_error(
-            "Tài khoản này còn giao dịch. Hãy chọn một tài khoản khác để chuyển lịch sử sang."
-        )
-
-    try:
-        if target:
-            # Moving the deleted account's opening balance keeps the total balance intact.
-            target.opening_balance = float(target.opening_balance) + float(account.opening_balance)
-            Transaction.query.filter_by(
-                user_id=current_user.id, account_id=account.id
-            ).update({"account_id": target.id}, synchronize_session=False)
-            Goal.query.filter_by(
-                user_id=current_user.id, account_id=account.id
-            ).update({"account_id": target.id}, synchronize_session=False)
-        else:
-            Goal.query.filter_by(
-                user_id=current_user.id, account_id=account.id
-            ).update({"account_id": None}, synchronize_session=False)
-        db.session.delete(account)
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        app.logger.exception("Account deletion failed")
-        return json_error("Không thể xóa tài khoản lúc này.", 500)
-    return jsonify({
-        "success": True,
-        "moved_transactions": transaction_count if target else 0,
         "state": build_state(current_user, data.get("period")),
     })
 
@@ -1293,6 +954,7 @@ def add_transaction():
     state = build_state(current_user, tx_date[:7])
     budget = next((b for b in state["budgets"] if b["category_id"] == category.id), None)
     breach = None
+    email_alert_sent = False
     if tx_type == "expense" and budget and budget["over"] > 0:
         breach = {
             "category": budget["category"], "spent": budget["spent"],
@@ -1307,19 +969,28 @@ def add_transaction():
             and email_delivery_configured()
         ):
             try:
-                send_budget_alert_email(
+                email_alert_sent = bool(send_budget_alert_email(
                     current_user.email,
                     current_user.username,
                     category.name,
                     budget["spent"],
                     budget["limit_vnd"],
+                    language=current_user.preferred_language,
+                    currency=current_user.preferred_currency,
+                    usd_vnd_rate=app.config["USD_VND_RATE"],
                     idempotency_key=(
                         f"budget-{current_user.id}-{category.id}-{tx_date[:7]}-{tx.id}"
                     ),
-                )
+                ))
             except Exception:
                 app.logger.exception("Budget alert email failed")
-    return jsonify({"success": True, "id": tx.id, "state": state, "breachAlert": breach}), 201
+    return jsonify({
+        "success": True,
+        "id": tx.id,
+        "state": state,
+        "breachAlert": breach,
+        "emailAlertSent": email_alert_sent,
+    }), 201
 
 
 @app.route("/api/transactions/<int:transaction_id>", methods=["PUT"])
@@ -1381,142 +1052,17 @@ def delete_transaction(transaction_id):
     return jsonify(build_state(current_user, period))
 
 
-@app.route("/api/chat/sessions", methods=["GET"])
-@login_required
-def list_chat_sessions():
-    sessions = (
-        ChatSession.query.filter_by(user_id=current_user.id)
-        .order_by(ChatSession.updated_at.desc(), ChatSession.id.desc())
-        .all()
-    )
-    counts = dict(
-        db.session.query(ChatMessage.session_id, db.func.count(ChatMessage.id))
-        .filter(ChatMessage.user_id == current_user.id)
-        .group_by(ChatMessage.session_id)
-        .all()
-    )
-    return jsonify({
-        "sessions": [serialize_chat_session(s, counts.get(s.id, 0)) for s in sessions]
-    })
-
-
-@app.route("/api/chat/sessions", methods=["POST"])
-@login_required
-def create_chat_session():
-    data = request.get_json(silent=True) or {}
-    title = " ".join(str(data.get("title", "")).split())[:CHAT_TITLE_MAX]
-    session = ChatSession(user_id=current_user.id, title=title or "New chat")
-    db.session.add(session)
-    db.session.commit()
-    prune_chat_sessions(current_user.id)
-    db.session.commit()
-    return jsonify({"success": True, "session": serialize_chat_session(session, 0)}), 201
-
-
-@app.route("/api/chat/sessions/<int:session_id>", methods=["GET"])
-@login_required
-def get_chat_session(session_id):
-    session = ChatSession.query.filter_by(id=session_id, user_id=current_user.id).first()
-    if not session:
-        return json_error("Không tìm thấy đoạn chat.", 404)
-    messages = (
-        ChatMessage.query.filter_by(session_id=session.id, user_id=current_user.id)
-        .order_by(ChatMessage.id)
-        .all()
-    )
-    return jsonify({
-        "session": serialize_chat_session(session, len(messages)),
-        "messages": [serialize_chat_message(m) for m in messages],
-    })
-
-
-@app.route("/api/chat/sessions/<int:session_id>", methods=["PATCH"])
-@login_required
-def rename_chat_session(session_id):
-    session = ChatSession.query.filter_by(id=session_id, user_id=current_user.id).first()
-    if not session:
-        return json_error("Không tìm thấy đoạn chat.", 404)
-    data = request.get_json(silent=True) or {}
-    title = " ".join(str(data.get("title", "")).split())
-    if not title:
-        return json_error("Tiêu đề không được để trống.")
-    session.title = title[:CHAT_TITLE_MAX]
-    session.updated_at = utc_now_naive()
-    db.session.commit()
-    return jsonify({"success": True, "session": serialize_chat_session(session)})
-
-
-@app.route("/api/chat/sessions/<int:session_id>", methods=["DELETE"])
-@login_required
-def delete_chat_session(session_id):
-    session = ChatSession.query.filter_by(id=session_id, user_id=current_user.id).first()
-    if not session:
-        return json_error("Không tìm thấy đoạn chat.", 404)
-    ChatMessage.query.filter_by(session_id=session.id).delete(synchronize_session=False)
-    db.session.delete(session)
-    db.session.commit()
-    return jsonify({"success": True})
-
-
-@app.route("/api/chat/sessions", methods=["DELETE"])
-@login_required
-def clear_chat_history():
-    ChatMessage.query.filter_by(user_id=current_user.id).delete(synchronize_session=False)
-    ChatSession.query.filter_by(user_id=current_user.id).delete(synchronize_session=False)
-    db.session.commit()
-    return jsonify({"success": True})
-
-
-def resolve_chat_session(session_id, first_message):
-    """Return the session to append to, creating one when the client sends none."""
-    if session_id is not None:
-        try:
-            session = ChatSession.query.filter_by(
-                id=int(session_id), user_id=current_user.id
-            ).first()
-        except (TypeError, ValueError):
-            session = None
-        if session:
-            return session
-    session = ChatSession(user_id=current_user.id, title=chat_title_from(first_message))
-    db.session.add(session)
-    db.session.flush()
-    return session
-
-
 @app.route("/api/coach", methods=["POST"])
 @login_required
 def coach():
-    payload = request.get_json(silent=True) or {}
-    message = str(payload.get("message", "")).strip()
+    message = str((request.get_json(silent=True) or {}).get("message", "")).strip()
     if not message:
         return json_error("Vui lòng nhập câu hỏi.")
-    if len(message) > 4000:
-        return json_error("Câu hỏi quá dài (tối đa 4000 ký tự).")
-
+    if len(message) > 2_000:
+        return json_error("Câu hỏi quá dài. Vui lòng giới hạn trong 2.000 ký tự.")
     state = build_state(current_user)
-    language = user_language(current_user)
-    currency = user_currency(current_user)
-
-    session = resolve_chat_session(payload.get("session_id"), message)
-    if not session.title or session.title == "New chat":
-        session.title = chat_title_from(message)
-
-    history = (
-        ChatMessage.query.filter_by(session_id=session.id, user_id=current_user.id)
-        .order_by(ChatMessage.id.desc())
-        .limit(12)
-        .all()
-    )
-    history.reverse()
-
-    user_message = ChatMessage(
-        session_id=session.id, user_id=current_user.id, role="user", content=message,
-    )
-    db.session.add(user_message)
-
-    reply_text = None
-    source = "local"
+    preferences = state["preferences"]
+    response_language = coach_response_language(message, preferences["language"])
     client = openai_client()
     if client:
         try:
@@ -1525,11 +1071,16 @@ def coach():
                 "budgets": state["budgets"], "goals": state["goals"],
                 "recent_transactions": state["transactions"][:20],
             }
-            language_rule = (
-                "Trả lời tiếng Việt" if language == "vi" else "Answer in English"
+            language_instruction = (
+                "Respond in English because the latest question is in English."
+                if response_language == "en"
+                else "Respond in Vietnamese because the latest question is in Vietnamese."
             )
-            transcript = "\n".join(
-                f'{"User" if m.role == "user" else "Coach"}: {m.content}' for m in history
+            currency_instruction = (
+                f"All monetary values in the JSON are base VND. Convert them to USD using "
+                f"1 USD = {preferences['usd_vnd_rate']:g} VND and display USD with two decimals."
+                if preferences["currency"] == "USD"
+                else "All monetary values in the JSON are VND. Display them as VND without decimal places."
             )
             response = client.responses.create(
                 model=os.environ.get("OPENAI_MODEL", "gpt-5.6-luna"),
@@ -1537,42 +1088,31 @@ def coach():
                 safety_identifier=hashlib.sha256(
                     f"budget-buddy-user:{current_user.id}".encode()
                 ).hexdigest(),
-                input=[{
-                    "role": "user",
-                    "content": (
-                        f"Bạn là trợ lý tài chính cá nhân. {language_rule}, tối đa 120 từ, "
-                        "dựa đúng dữ liệu; không bịa số. Nêu 1-3 hành động cụ thể. "
-                        f"Số tiền trong dữ liệu tính bằng VND; hiển thị theo đơn vị {currency} "
-                        f"(1 {currency} = {CURRENCY_RATES[currency]:,.0f} VND).\n"
-                        + (f"Lịch sử trò chuyện gần đây:\n{transcript}\n" if transcript else "")
-                        + f"Dữ liệu: {json.dumps(compact, ensure_ascii=False)}\nCâu hỏi: {message}"
-                    ),
-                }],
+                instructions=(
+                    f"You are a personal finance assistant. {language_instruction} {currency_instruction} "
+                    "Use only the supplied data and never invent numbers. Keep the answer under 120 words "
+                    "and give 1-3 concrete actions when useful. Use simple Markdown with short paragraphs "
+                    "and lists. Put every list item on its own line. Never use HTML or BBCode, and always "
+                    "close Markdown emphasis markers."
+                ),
+                input=(
+                    f"Financial data JSON: {json.dumps(compact, ensure_ascii=False)}\n"
+                    f"User question: {message}"
+                ),
             )
-            reply_text = response.output_text
-            source = "openai"
+            return jsonify({
+                "reply": response.output_text,
+                "source": "openai",
+                "format": "markdown",
+                "language": response_language,
+            })
         except Exception:
             app.logger.exception("AI Coach failed; using local insight engine")
-
-    if not reply_text:
-        reply_text = local_coach_reply(message, state, language, currency)
-        source = "local"
-
-    ai_message = ChatMessage(
-        session_id=session.id, user_id=current_user.id, role="ai",
-        content=reply_text, source=source,
-    )
-    db.session.add(ai_message)
-    session.updated_at = utc_now_naive()
-    db.session.commit()
-    prune_chat_sessions(current_user.id)
-    db.session.commit()
-
     return jsonify({
-        "reply": reply_text,
-        "source": source,
-        "session": serialize_chat_session(session),
-        "messages": [serialize_chat_message(user_message), serialize_chat_message(ai_message)],
+        "reply": local_coach_reply(message, state),
+        "source": "local",
+        "format": "markdown",
+        "language": response_language,
     })
 
 
@@ -1737,6 +1277,9 @@ def deposit_goal(goal_id):
                 current_user.email, current_user.username, goal.name, goal.target,
                 goal.current_saved, monthly_needed,
                 max(1, int(remaining / monthly_needed)) if remaining else 0,
+                language=current_user.preferred_language,
+                currency=current_user.preferred_currency,
+                usd_vnd_rate=app.config["USD_VND_RATE"],
             )
         except Exception:
             app.logger.exception("Goal email notification failed")
@@ -1814,6 +1357,9 @@ def send_due_weekly_reports(reference_date=None, force=False):
                     previous_expense,
                     by_category,
                     recent,
+                    language=user.preferred_language,
+                    currency=user.preferred_currency,
+                    usd_vnd_rate=app.config["USD_VND_RATE"],
                     idempotency_key=f"weekly-{user.id}-{week_start.isoformat()}",
                 )
             except Exception:

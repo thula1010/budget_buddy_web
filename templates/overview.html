@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Buddy — Overview</title>
+<script>window.BB_PREFERENCES = {{ app_preferences|tojson }};</script>
+<script src="{{ url_for('static', filename='js/preferences.js') }}"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -124,15 +126,6 @@ body{
   padding:7px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:.16s;
 }
 .edit-balance-btn:hover{border-color:var(--accent);background:#F0FDFA}
-.edit-balance-btn.danger{color:var(--expense)}
-.edit-balance-btn.danger:hover{border-color:var(--expense);background:#FEF2F2}
-.acc-row .amt{margin-left:auto}
-.acc-actions{display:flex;gap:6px;flex-shrink:0}
-@media(max-width:720px){
-  .acc-row{flex-wrap:wrap}
-  .acc-row .amt{margin-left:auto}
-  .acc-actions{width:100%;justify-content:flex-end}
-}
 /* ---------- Table ---------- */
 table{width:100%;border-collapse:collapse}
 th{
@@ -202,22 +195,20 @@ canvas{max-width:100%}
   .sidebar{width:76px}.brand div,.nav button span.lbl,.profile div,.logout-btn{display:none}
 }
 </style>
-<script>window.BB_PREFS = {language: "{{ user.language or 'vi' }}", currency: "{{ user.currency or 'VND' }}"};</script>
-<script src="{{ url_for('static', filename='js/bb-i18n.js') }}"></script>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
       <div class="logo">&#128176;</div>
-      <div><h1>Budget Buddy</h1><span data-i18n="brand.tagline">Smart Finance</span></div>
+      <div><h1>Budget Buddy</h1><span>&middot; Smart Finance</span></div>
     </div>
     <nav class="nav" id="nav">
-      <button data-tab="overview" class="active">&#127968; <span class="lbl" data-i18n="nav.overview">Overview</span></button>
-      <button data-tab="transactions" onclick="window.location.href='transactions'">&#8596;&#65039; <span class="lbl" data-i18n="nav.transactions">Transactions</span></button>
-      <button data-tab="budgets" onclick="window.location.href='budgets'">&#128202; <span class="lbl" data-i18n="nav.budgets">Budgets</span><i class="dot" id="budDot" style="display:none"></i></button>
-      <button data-tab="goals" onclick="window.location.href='goals'">&#127919; <span class="lbl" data-i18n="nav.goals">Goals</span></button>
-      <button data-tab="ai-coach" onclick="window.location.href='ai-coach'">&#10024; <span class="lbl" data-i18n="nav.coach">AI Coach</span></button>
+      <button data-tab="overview" class="active">&#127968; <span class="lbl">Overview</span></button>
+      <button data-tab="transactions" onclick="window.location.href='transactions'">&#8596;&#65039; <span class="lbl">Transactions</span></button>
+      <button data-tab="budgets" onclick="window.location.href='budgets'">&#128202; <span class="lbl">Budgets</span><i class="dot" id="budDot" style="display:none"></i></button>
+      <button data-tab="goals" onclick="window.location.href='goals'">&#127919; <span class="lbl">Goals</span></button>
+      <button data-tab="ai-coach" onclick="window.location.href='ai-coach'">&#10024; <span class="lbl">AI Coach</span></button>
     </nav>
     <div class="profile">
       <div style="display: flex; gap: 12px; align-items: center; min-width: 0;">
@@ -227,10 +218,10 @@ canvas{max-width:100%}
           <small id="uplan" style="color: var(--muted); font-size: 12px;">Student</small>
         </div>
       </div>
-      <a href="/settings" data-i18n-title="nav.settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
+      <a href="/settings" title="Cài đặt" class="logout-btn" aria-label="Cài đặt">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"></path></svg>
       </a>
-      <a href="/logout" data-i18n-title="nav.logout" title="Đăng xuất" class="logout-btn">
+      <a href="/logout" title="Đăng xuất" class="logout-btn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
           <polyline points="16 17 21 12 16 7"></polyline>
@@ -241,11 +232,10 @@ canvas{max-width:100%}
   </aside>
   <main class="main">
     <header class="topbar">
-      <div><h2 id="pageTitle" data-i18n="page.overview.title">Overview</h2><p id="pageSub"></p></div>
+      <div><h2 id="pageTitle">Overview</h2><p id="pageSub">July 2025 &middot; All accounts synced</p></div>
       <div style="display:flex;gap:12px;align-items:center">
-        <div data-bb-switcher></div>
-        <div class="synced"><i class="pulse"></i> <span data-i18n="common.synced">Synced</span></div>
-        <button class="btn" id="openModal" data-i18n="txn.add">+ Add Transaction</button>
+        <div class="synced"><i class="pulse"></i> Synced</div>
+        <button class="btn" id="openModal">+ Add Transaction</button>
       </div>
     </header>
     <div class="content" id="view"></div>
@@ -255,20 +245,20 @@ canvas{max-width:100%}
 <!-- Modal Thêm Giao Dịch Đồng Bộ Giao Diện Upload -->
 <div class="overlay" id="overlay">
   <div class="modal">
-    <h3 id="txnModalTitle" data-i18n="txn.add_title">Add Transaction</h3>
+    <h3>Add Transaction</h3>
     <div class="toggle">
-      <button id="tExp" class="on" data-i18n="txn.expense">Expense</button>
-      <button id="tInc" data-i18n="txn.income">Income</button>
+      <button id="tExp" class="on">Expense</button>
+      <button id="tInc">Income</button>
     </div>
     
     <!-- Upload hóa đơn UI dạng Drag & Drop -->
     <div class="field">
-      <label data-i18n="receipt.label">Hóa đơn đính kèm</label>
+      <label>Hóa đơn đính kèm (Receipt)</label>
       <div class="upload-zone" id="uploadZone">
         <input type="file" id="fReceipt" accept="image/jpeg,image/png,image/webp" capture="environment">
         <span class="upload-icon">&#129302;</span>
-        <div class="upload-text" data-i18n="receipt.drop">Kéo thả hoặc click để tải hóa đơn</div>
-        <div class="upload-hint" data-i18n="receipt.hint">Tự động nhận diện thông tin bằng AI (JPG, PNG)</div>
+        <div class="upload-text">Kéo thả hoặc click để tải hóa đơn</div>
+        <div class="upload-hint">Tự động nhận diện thông tin bằng AI (JPG, PNG)</div>
       </div>
       <div class="preview-box" id="previewBox">
         <img id="receiptImg" src="" alt="Receipt Preview">
@@ -276,92 +266,45 @@ canvas{max-width:100%}
           <div class="filename" id="receiptFileName">receipt.jpg</div>
           <div class="filesize" id="receiptFileSize">0 KB</div>
         </div>
-        <button type="button" class="remove-btn" id="removeReceiptBtn" data-i18n-title="receipt.remove" title="Xóa ảnh">&times;</button>
+        <button type="button" class="remove-btn" id="removeReceiptBtn" title="Xóa ảnh">&times;</button>
       </div>
     </div>
 
-    <div class="field"><label data-i18n="txn.merchant">Merchant</label><input id="fMerchant" data-i18n-placeholder="txn.merchant_hint" placeholder="VD: Highlands Coffee"></div>
+    <div class="field"><label>Merchant / Mô tả</label><input id="fMerchant" placeholder="VD: Highlands Coffee"></div>
     <div class="row2">
-      <div class="field"><label><span data-i18n="txn.amount">Amount</span> (<span class="bb-cur">&#8363;</span>)</label><input id="fAmount" type="number" min="0" step="1000" placeholder="45000"></div>
-      <div class="field"><label data-i18n="txn.date">Date</label><input id="fDate" type="date"></div>
+      <div class="field"><label>Amount (<span data-currency-label>VND</span>)</label><input id="fAmount" type="number" min="0" step="any"></div>
+      <div class="field"><label>Date</label><input id="fDate" type="date"></div>
     </div>
-    <div class="field"><label data-i18n="txn.category">Category</label><select id="fCat"></select></div>
-    <div class="field"><label data-i18n="txn.account">Paid via / Account</label><select id="fAcc"></select></div>
+    <div class="field"><label>Category</label><select id="fCat"></select></div>
+    <div class="field"><label>Paid via / Account</label><select id="fAcc"></select></div>
     
     <div class="preview" id="preview"></div>
     <div class="err" id="err"></div>
     <div class="row2">
-      <button class="btn ghost" id="cancelBtn" data-i18n="common.cancel">Cancel</button>
-      <button class="btn" id="saveBtn" data-i18n="txn.save">Save Transaction</button>
+      <button class="btn ghost" id="cancelBtn">Cancel</button>
+      <button class="btn" id="saveBtn">Save Transaction</button>
     </div>
   </div>
 </div>
 
 <div class="overlay" id="balanceOverlay">
   <div class="modal" style="width:420px">
-    <h3 data-i18n="accounts.balance_title">Chỉnh số dư tài khoản</h3>
+    <h3>Chỉnh số dư tài khoản</h3>
     <div class="field">
-      <label data-i18n="txn.account">Tài khoản</label>
+      <label>Tài khoản</label>
       <div id="balanceAccountName" style="font-weight:800"></div>
     </div>
     <div class="field">
-      <label><span data-i18n="accounts.current_balance">Số dư hiện tại</span> (<span class="bb-cur">₫</span>)</label>
-      <input id="balanceAmount" type="number" min="0" step="1000" inputmode="decimal">
+      <label>Current balance (<span data-currency-label>VND</span>)</label>
+      <input id="balanceAmount" type="number" min="0" step="any" inputmode="decimal">
     </div>
-    <div style="font-size:12px;color:var(--muted);margin:-4px 0 14px" data-i18n="accounts.balance_hint">
-      Lịch sử giao dịch được giữ nguyên.
+    <div style="font-size:12px;color:var(--muted);margin:-4px 0 14px">
+      Lịch sử giao dịch được giữ nguyên. Số dư mới sẽ đồng bộ trên toàn ứng dụng.
     </div>
     <div class="err" id="balanceErr"></div>
     <div class="row2">
-      <button class="btn ghost" id="cancelBalanceBtn" data-i18n="common.cancel">Hủy</button>
-      <button class="btn" id="saveBalanceBtn" data-i18n="common.save">Lưu số dư</button>
-    </div>
-  </div>
-</div>
-
-<!-- Thêm / sửa tài khoản tiền -->
-<div class="overlay" id="accountOverlay">
-  <div class="modal" style="width:460px">
-    <h3 id="accountModalTitle" data-i18n="accounts.add_title">Thêm tài khoản mới</h3>
-    <div class="field">
-      <label data-i18n="accounts.name">Tên tài khoản</label>
-      <input id="accName" maxlength="100" data-i18n-placeholder="accounts.name_hint" placeholder="VD: Vietcombank">
-    </div>
-    <div class="row2">
-      <div class="field">
-        <label data-i18n="accounts.type">Loại tài khoản</label>
-        <select id="accType"></select>
-      </div>
-      <div class="field">
-        <label data-i18n="accounts.icon">Biểu tượng</label>
-        <input id="accIcon" maxlength="4" placeholder="🏦">
-      </div>
-    </div>
-    <div class="field" id="accBalanceField">
-      <label><span data-i18n="accounts.opening_balance">Số dư ban đầu</span> (<span class="bb-cur">₫</span>)</label>
-      <input id="accBalance" type="number" min="0" step="1000" inputmode="decimal" value="0">
-    </div>
-    <div class="err" id="accErr"></div>
-    <div class="row2">
-      <button class="btn ghost" id="cancelAccountBtn" data-i18n="common.cancel">Hủy</button>
-      <button class="btn" id="saveAccountBtn" data-i18n="common.save">Lưu</button>
-    </div>
-  </div>
-</div>
-
-<!-- Xóa tài khoản: chọn nơi nhận lịch sử giao dịch -->
-<div class="overlay" id="deleteAccountOverlay">
-  <div class="modal" style="width:460px">
-    <h3 id="deleteAccountTitle"></h3>
-    <p id="deleteAccountHint" style="font-size:13.5px;line-height:1.55;color:var(--muted);margin-bottom:14px"></p>
-    <div class="field" id="moveToField" style="display:none">
-      <label data-i18n="accounts.move_to">Chuyển giao dịch sang</label>
-      <select id="moveToAccount"></select>
-    </div>
-    <div class="err" id="deleteAccErr"></div>
-    <div class="row2">
-      <button class="btn ghost" id="cancelDeleteAccountBtn" data-i18n="common.cancel">Hủy</button>
-      <button class="btn" id="confirmDeleteAccountBtn" style="background:var(--expense);box-shadow:none" data-i18n="common.delete">Xóa</button>
+      <button class="btn ghost" id="cancelBalanceBtn">Hủy</button>
+      <button class="btn" id="saveBalanceBtn">Lưu số dư</button>
     </div>
   </div>
 </div>
@@ -482,11 +425,9 @@ window.fetch = nativeFetch;
 
 const $ = s => document.querySelector(s);
 let S = null, txnType = 'expense', charts = [];
-/* All amounts arrive from the API in VND; BB converts them for display only. */
-const fmtVND = n => BB.axis(n);
-const money  = n => BB.money(n);
-const full   = n => BB.full(n);
-const t      = (k, v) => BB.t(k, v);
+const fmtVND = n => BB.compactAmount(n);
+const money = n => BB.formatMoney(n, {compact:true});
+const full  = n => BB.formatMoney(n);
 const dmy   = d => { const p = d.split('-'); return p[2] + '/' + p[1]; };
 const esc   = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -537,76 +478,67 @@ async function load(){
 function render(){
   if(!S) return;
   charts.forEach(c => c.destroy()); charts = [];
-  $('#pageTitle').textContent = t('page.overview.title');
+  $('#pageTitle').textContent = 'Overview';
   const [periodYear, periodMonth] = S.period.split('-').map(Number);
   $('#pageSub').textContent = new Date(periodYear, periodMonth - 1, 1)
-    .toLocaleDateString(BB.localeDate(), {month:'long', year:'numeric'}) + ' · ' + t('page.overview.sub');
+    .toLocaleDateString(BB.language === 'vi' ? 'vi-VN' : 'en-US', {month:'long', year:'numeric'}) + ' · ' + BB.text('All accounts synced', 'Tất cả tài khoản đã đồng bộ');
   $('#uname').textContent = S.user.name;
-  $('#uplan').textContent = t('common.plan');
+  $('#uplan').textContent = S.user.plan;
   $('#avatar').textContent = S.user.initials;
   $('#budDot').style.display = S.budgets.some(b => b.over > 0) ? 'block' : 'none';
   $('#view').innerHTML = vOverview();
-  BB.applyDom($('#view'));
-  document.querySelectorAll('.bb-cur').forEach(el => { el.textContent = BB.symbol(); });
   after();
 }
 
 function txnTable(list){
-  if(!list.length) return `<p style="color:var(--muted);padding:20px 0">${t('txn.empty')}</p>`;
-  return `<table><thead><tr><th>${t('txn.col.merchant')}</th><th>${t('txn.col.category')}</th><th>${t('txn.col.account')}</th><th style="text-align:right">${t('txn.col.amount')}</th></tr></thead><tbody>` +
+  if(!list.length) return '<p style="color:var(--muted);padding:20px 0">Chưa có giao dịch nào.</p>';
+  return `<table><thead><tr><th>Merchant</th><th>Category</th><th>Account</th><th style="text-align:right">Amount</th></tr></thead><tbody>` +
     list.map(t => `
       <tr class="txn">
         <td><div style="display:flex;align-items:center;gap:12px">
           <div class="tile" style="background:${t.bg}">${t.cat_icon}</div>
-          <div><b>${esc(t.merchant)}</b>${t.ai_tagged?`<span class="ai-badge">${BB.t('txn.ai_tagged')}</span>`:''}
+          <div><b>${esc(t.merchant)}</b>${t.ai_tagged?'<span class="ai-badge">AI tagged</span>':''}
           <small style="display:block;color:var(--muted)">${dmy(t.date)}</small></div></div></td>
-        <td><span class="badge" style="background:${t.bg};color:${t.color}">${esc(t.category)}</span></td>
+        <td><span class="badge" style="background:${t.bg};color:${t.color}">${esc(BB.category(t.category))}</span></td>
         <td style="color:var(--muted);font-weight:600">${esc(t.account)}</td>
         <td class="${t.amount>0?'amt-pos':'amt-neg'}">${t.amount>0?'+':'-'}${full(Math.abs(t.amount))}</td>
       </tr>`).join('') + '</tbody></table>';
 }
 
-/* Tên tháng theo ngôn ngữ đang chọn, ví dụ "tháng 8" / "August". */
-function monthLabel(period){
-  const [year, month] = period.split('-').map(Number);
-  return new Date(year, month - 1, 1).toLocaleDateString(BB.localeDate(), {month:'long'});
-}
-
 function vOverview(){
   const k = S.kpi;
   const over = S.budgets.filter(b => b.over > 0);
+  const alertText = over.length ? BB.text(
+    `The <b>${esc(BB.category(over[0].category))}</b> budget is over by <b>${full(over[0].over)}</b>`,
+    `Ngân sách <b>${esc(BB.category(over[0].category))}</b> đã vượt <b>${full(over[0].over)}</b>`
+  ) : '';
   const alert = over.length ? `
-    <div class="alert">&#9888;&#65039; <span>${t('overview.alert', {category: esc(over[0].category), amount: full(over[0].over)})}</span>
-    <button class="btn" onclick="window.location.href='/budgets'">${t('overview.review')} &rarr;</button></div>` : ''; 
+    <div class="alert">&#9888;&#65039; <span>${alertText}</span>
+    <button class="btn" onclick="window.location.href='/budgets'">Review &rarr;</button></div>` : ''; 
     
   const kpis = [
-    [t('kpi.balance'),'&#128176;','#0D9488','#CCFBF1', money(k.balance), t('kpi.balance.sub')],
-    [t('kpi.income'),'&#128184;','#34D399','#D1FAE5', money(k.income), t('kpi.income.sub')],
-    [t('kpi.spending'),'&#128181;','#F87171','#FEE2E2', money(k.expense), t('kpi.spending.sub', {month: monthLabel(S.period)})],
-    [t('kpi.savings_rate'),'&#127775;','#A78BFA','#EDE9FE', k.savings_rate + '%', t('kpi.savings_rate.sub', {target: k.target_rate})],
+    ['BALANCE','&#128176;','#0D9488','#CCFBF1', money(k.balance), 'Across all accounts'],
+    ['INCOME','&#128184;','#34D399','#D1FAE5', money(k.income), 'Scholarship + tutoring'],
+    ['SPENDING','&#128181;','#F87171','#FEE2E2', money(k.expense), 'Tháng ' + S.period.slice(5)],
+    ['SAVINGS RATE','&#127775;','#A78BFA','#EDE9FE', k.savings_rate + '%', 'Target ' + k.target_rate + '%'],
   ].map((c,i) => `
     <div class="card kpi" style="--c:${c[2]};animation-delay:${i*.07}s">
       <div class="top"><h3>${c[0]}</h3><div class="tile" style="background:${c[3]}">${c[1]}</div></div>
       <div class="val" style="color:${c[2]}">${c[4]}</div>
       <div class="sub">${c[5]}</div>
     </div>`).join('');
-  const typeOrder = (S.account_types || []).map(x => x.type);
-  const groups = typeOrder.length ? typeOrder : ['cash','bank','ewallet','credit','savings','investment'];
-  const accHtml = groups.map(kind => {
-    const list = S.accounts.filter(a => a.type === kind);
+  const groups = [['cash','&#128181; CASH'],['bank','&#127974; BANK ACCOUNTS'],['ewallet','&#128241; E-WALLETS']];
+  const accHtml = groups.map(([t,label]) => {
+    const list = S.accounts.filter(a => a.type === t);
     if(!list.length) return '';
     const sub = list.reduce((s,a) => s + a.balance, 0);
-    return `<div class="acc-group"><div class="acc-head"><span>${t('acctype.' + kind + '.group')}</span><span>${money(sub)}</span></div>` +
+    return `<div class="acc-group"><div class="acc-head"><span>${label}</span><span>${money(sub)}</span></div>` +
       list.map(a => `
         <div class="acc-row">
           <div class="tile" style="background:#F1F5F9">${a.icon}</div>
-          <div><b>${esc(a.name)}</b><small>${t('acctype.' + a.type)}</small></div>
-          <div class="amt">${full(a.balance)}<small>${t('accounts.active')}</small></div>
-          <div class="acc-actions">
-            <button type="button" class="edit-balance-btn" onclick="openBalanceModal(${a.id})">${t('accounts.edit_balance')}</button>
-            <button type="button" class="edit-balance-btn" onclick="openAccountModal(${a.id})">${t('common.edit')}</button>
-            <button type="button" class="edit-balance-btn danger" onclick="openDeleteAccountModal(${a.id})">${t('common.delete')}</button>
-          </div>
+          <div><b>${esc(a.name)}</b><small>${t}</small></div>
+          <div class="amt">${full(a.balance)}<small>&#9679; Active</small></div>
+          <button type="button" class="edit-balance-btn" onclick="openBalanceModal(${a.id})">Chỉnh sửa</button>
         </div>`).join('') + '</div>';
   }).join('');
   return alert + `
@@ -614,18 +546,18 @@ function vOverview(){
   <div class="grid g2">
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:baseline">
-        <h3>${t('accounts.title')}</h3>
-        <div style="text-align:right"><h3>${t('accounts.total')}</h3>
+        <h3>Accounts Overview</h3>
+        <div style="text-align:right"><h3>Total across accounts</h3>
         <b style="font-size:22px;color:var(--accent)">${money(S.kpi.balance)}</b></div>
       </div>${accHtml}
-      <button class="btn ghost" style="width:100%;margin-top:16px" onclick="openAccountModal()">${t('accounts.add')}</button>
+      <button class="btn ghost" style="width:100%;margin-top:16px" onclick="alert('Demo: chức năng liên kết tài khoản')">+ Link Account</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="card"><h3>${t('budget.spending_by_category')}</h3><canvas id="donut" height="210"></canvas></div>
-      <div class="card"><h3>${t('budget.weekly')}</h3><canvas id="bars" height="150"></canvas></div>
+      <div class="card"><h3>Spending by Category</h3><canvas id="donut" height="210"></canvas></div>
+      <div class="card"><h3>Weekly Spend</h3><canvas id="bars" height="150"></canvas></div>
     </div>
   </div>
-  <div class="card"><h3>${t('txn.recent')}</h3>${txnTable(S.transactions.slice(0,6))}</div>`;
+  <div class="card"><h3>Recent Transactions</h3>${txnTable(S.transactions.slice(0,6))}</div>`;
 }
 
 function after(){
@@ -634,11 +566,9 @@ function after(){
     const d = S.charts.by_category;
     charts.push(new Chart(donut, {
       type:'doughnut',
-      data:{labels:Object.keys(d), datasets:[{data:Object.values(d),
+      data:{labels:Object.keys(d).map(BB.category), datasets:[{data:Object.values(d),
         backgroundColor:['#0D9488','#A78BFA','#F87171','#34D399','#FBBF24','#60A5FA'], borderWidth:0}]},
-      options:{cutout:'62%', plugins:{
-        legend:{position:'right',labels:{boxWidth:10,font:{family:'Plus Jakarta Sans',size:12},color:'#334155'}},
-        tooltip:{callbacks:{label: c => `${c.label}: ${full(c.raw)}`}}}}
+      options:{cutout:'62%', plugins:{legend:{position:'right',labels:{boxWidth:10,font:{family:'Plus Jakarta Sans',size:12},color:'#334155'}}}}
     }));
   }
   const bars = $('#bars');
@@ -647,10 +577,9 @@ function after(){
     const mx = Math.max(...w);
     charts.push(new Chart(bars, {
       type:'bar',
-      data:{labels:[1,2,3,4].map(n => t('budget.week', {n})), datasets:[{data:w,
+      data:{labels:['Wk 1','Wk 2','Wk 3','Wk 4'], datasets:[{data:w,
         backgroundColor:w.map(v => v===mx?'#F87171':'#2DA89C'), borderRadius:6, barThickness:36}]},
-      options:{plugins:{legend:{display:false},
-          tooltip:{callbacks:{label: c => full(c.raw)}}},
+      options:{plugins:{legend:{display:false}},
         scales:{y:{beginAtZero:true,grid:{color:'#F1F5F9'},ticks:{callback:v=>fmtVND(v),color:'#94A3B8'}},
                 x:{grid:{display:false},ticks:{color:'#94A3B8'}}}}
     }));
@@ -659,20 +588,19 @@ function after(){
 
 function fillSelects(){
   const cats = S.categories.filter(c => c.kind === txnType);
-  $('#fCat').innerHTML = cats.map(c => `<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join('');
+  $('#fCat').innerHTML = cats.map(c => `<option value="${c.id}">${c.icon} ${esc(BB.category(c.name))}</option>`).join('');
   $('#fAcc').innerHTML = S.accounts.map(a => `<option value="${a.id}">${a.icon} ${esc(a.name)} — ${full(a.balance)}</option>`).join('');
-  $('#fAmount').step = BB.inputStep();
   updatePreview();
 }
 
 function updatePreview(){
   const acc = S.accounts.find(a => a.id == $('#fAcc').value);
-  const amt = BB.toBase(Number($('#fAmount').value) || 0);
+  const amt = BB.toBase(parseFloat($('#fAmount').value || 0));
   if(!acc){ $('#preview').textContent = ''; return; }
   const after = acc.balance + (txnType === 'income' ? amt : -amt);
-  $('#preview').innerHTML = t('txn.balance_after', {account: '<b>' + esc(acc.name) + '</b>'}) + ' ' +
+  $('#preview').innerHTML = BB.text(`Balance of <b>${esc(acc.name)}</b> after the transaction: `, `Số dư <b>${esc(acc.name)}</b> sau giao dịch: `) +
     `<b style="color:${after < 0 ? '#DC2626' : '#059669'}">${full(after)}</b>` +
-    (after < 0 ? ' &nbsp;' + t('txn.insufficient') : '');
+    (after < 0 ? BB.text(' &nbsp;&#9888;&#65039; insufficient balance', ' &nbsp;&#9888;&#65039; không đủ số dư') : '');
 }
 
 /* ---------- Xử lý Upload Hóa Đơn (Đồng bộ với Transactions/Budgets) ---------- */
@@ -706,7 +634,7 @@ function setupReceiptUpload(){
 
   function handleFile(file){
     if(!file.type.startsWith('image/')) {
-      alert(t('receipt.pick_image'));
+      alert('Vui lòng chọn file hình ảnh!');
       return;
     }
     const reader = new FileReader();
@@ -725,20 +653,20 @@ function setupReceiptUpload(){
   }
 
   async function scanReceipt(file){
-    $('#err').textContent = t('receipt.scanning');
+    $('#err').textContent = 'Đang đọc hóa đơn bằng AI...';
     const formData = new FormData();
     formData.append('receipt', file);
     try {
       const response = await nativeFetch('/api/scan-receipt', {method:'POST', body:formData});
       const data = await response.json();
-      if(!response.ok) throw new Error(data.error || t('common.error'));
+      if(!response.ok) throw new Error(data.error || 'Không thể đọc hóa đơn');
       $('#fMerchant').value = data.merchant || '';
       $('#fAmount').value = data.amount ? BB.inputValue(data.amount) : '';
       $('#fDate').value = data.date || $('#fDate').value;
       setType('expense');
       const category = S.categories.find(c => c.name === data.category);
       if(category) $('#fCat').value = category.id;
-      $('#err').textContent = t('receipt.done');
+      $('#err').textContent = 'Đã điền thông tin từ hóa đơn. Vui lòng kiểm tra trước khi lưu.';
       updatePreview();
     } catch(error) {
       $('#err').textContent = error.message;
@@ -757,7 +685,6 @@ function setupReceiptUpload(){
 function openModal(){
   $('#fDate').value = S.period + '-' + String(new Date().getDate()).padStart(2,'0');
   $('#fMerchant').value = ''; $('#fAmount').value = ''; $('#err').textContent = '';
-  $('#fAmount').step = BB.inputStep();
   $('#fReceipt').value = ''; currentReceiptBase64 = null;
   $('#uploadZone').style.display = 'block';
   $('#previewBox').style.display = 'none';
@@ -771,7 +698,6 @@ function openBalanceModal(accountId){
   editingAccountId = accountId;
   $('#balanceAccountName').textContent = `${account.icon} ${account.name}`;
   $('#balanceAmount').value = BB.inputValue(account.balance);
-  $('#balanceAmount').step = BB.inputStep();
   $('#balanceErr').textContent = '';
   $('#balanceOverlay').classList.add('open');
   $('#balanceAmount').focus();
@@ -800,12 +726,12 @@ $('#balanceOverlay').onclick = e => { if(e.target === $('#balanceOverlay')) clos
 $('#balanceAmount').onkeydown = e => { if(e.key === 'Enter') $('#saveBalanceBtn').click(); };
 
 $('#saveBalanceBtn').onclick = async () => {
-  const typed = Number($('#balanceAmount').value);
-  if(!Number.isFinite(typed) || typed < 0){
-    $('#balanceErr').textContent = t('accounts.invalid_balance');
+  const displayBalance = Number($('#balanceAmount').value);
+  const balance = BB.toBase(displayBalance);
+  if(!Number.isFinite(displayBalance) || displayBalance < 0){
+    $('#balanceErr').textContent = BB.text(`Enter a valid balance of 0 ${BB.currencyLabel()} or more.`, `Vui lòng nhập số dư hợp lệ, từ 0 ${BB.currencyLabel()} trở lên.`);
     return;
   }
-  const balance = Math.round(BB.toBase(typed));
   const button = $('#saveBalanceBtn');
   button.disabled = true;
   $('#balanceErr').textContent = '';
@@ -816,7 +742,7 @@ $('#saveBalanceBtn').onclick = async () => {
       body: JSON.stringify({balance, period:S.period})
     });
     const data = await response.json();
-    if(!response.ok) throw new Error(data.error || t('common.error'));
+    if(!response.ok) throw new Error(data.error || 'Không thể cập nhật số dư.');
     S = data.state;
     closeBalanceModal();
     render();
@@ -831,7 +757,7 @@ $('#saveBtn').onclick = async () => {
   $('#err').textContent = '';
   
   const merchantVal = $('#fMerchant').value.trim();
-  const amountVal   = Math.round(BB.toBase(parseFloat($('#fAmount').value) || 0));
+  const amountVal   = BB.toBase(parseFloat($('#fAmount').value) || 0);
   const dateVal     = $('#fDate').value;
   const catId       = parseInt($('#fCat').value, 10);
   const accId       = parseInt($('#fAcc').value, 10);
@@ -868,160 +794,6 @@ $('#saveBtn').onclick = async () => {
     $('#err').textContent = 'Lỗi kết nối tới server Flask!';
   }
 };
-
-/* ---------- Quản lý tài khoản tiền (thêm / sửa / xóa) ---------- */
-let editingAccount = null;      // null = đang tạo mới
-let deletingAccount = null;
-
-function accountTypes(){
-  return (S && S.account_types && S.account_types.length)
-    ? S.account_types
-    : [{type:'cash', icon:'💵'}, {type:'bank', icon:'🏦'}, {type:'ewallet', icon:'📱'},
-       {type:'credit', icon:'💳'}, {type:'savings', icon:'🐖'}, {type:'investment', icon:'📈'}];
-}
-
-function fillAccountTypes(selected){
-  $('#accType').innerHTML = accountTypes()
-    .map(x => `<option value="${x.type}" data-icon="${x.icon}">${x.icon} ${t('acctype.' + x.type)}</option>`)
-    .join('');
-  if(selected) $('#accType').value = selected;
-}
-
-window.openAccountModal = function(accountId){
-  editingAccount = accountId ? S.accounts.find(a => a.id === accountId) : null;
-  fillAccountTypes(editingAccount ? editingAccount.type : 'bank');
-  $('#accountModalTitle').textContent = t(editingAccount ? 'accounts.edit_title' : 'accounts.add_title');
-  $('#accName').value = editingAccount ? editingAccount.name : '';
-  $('#accIcon').value = editingAccount ? editingAccount.icon : defaultIconFor($('#accType').value);
-  $('#accBalance').value = editingAccount ? BB.inputValue(editingAccount.balance) : 0;
-  $('#accBalance').step = BB.inputStep();
-  // Số dư của tài khoản đã có được chỉnh ở modal riêng để không đụng vào lịch sử.
-  $('#accBalanceField').style.display = editingAccount ? 'none' : 'block';
-  $('#accErr').textContent = '';
-  $('#accountOverlay').classList.add('open');
-  $('#accName').focus();
-};
-
-function defaultIconFor(type){
-  const found = accountTypes().find(x => x.type === type);
-  return found ? found.icon : '🏦';
-}
-
-function closeAccountModal(){
-  $('#accountOverlay').classList.remove('open');
-  editingAccount = null;
-}
-
-$('#accType').onchange = () => {
-  // Chỉ tự đổi icon khi người dùng chưa tự chọn icon riêng.
-  const current = $('#accIcon').value.trim();
-  const isDefault = accountTypes().some(x => x.icon === current) || !current;
-  if(isDefault) $('#accIcon').value = defaultIconFor($('#accType').value);
-};
-$('#cancelAccountBtn').onclick = closeAccountModal;
-$('#accountOverlay').onclick = e => { if(e.target === $('#accountOverlay')) closeAccountModal(); };
-
-$('#saveAccountBtn').onclick = async () => {
-  const name = $('#accName').value.trim();
-  if(!name){ $('#accErr').textContent = t('accounts.invalid_name'); return; }
-  const typed = Number($('#accBalance').value) || 0;
-  if(!editingAccount && (!Number.isFinite(typed) || typed < 0)){
-    $('#accErr').textContent = t('accounts.invalid_balance');
-    return;
-  }
-  const button = $('#saveAccountBtn');
-  button.disabled = true;
-  $('#accErr').textContent = '';
-  try {
-    const payload = {
-      name: name,
-      type: $('#accType').value,
-      icon: $('#accIcon').value.trim() || defaultIconFor($('#accType').value),
-      period: S.period,
-    };
-    if(!editingAccount) payload.opening_balance = Math.round(BB.toBase(typed));
-    const url = editingAccount ? `/api/accounts/${editingAccount.id}` : '/api/accounts';
-    const response = await fetch(url, {
-      method: editingAccount ? 'PATCH' : 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-    if(!response.ok) throw new Error(data.error || t('common.error'));
-    S = data.state;
-    closeAccountModal();
-    render();
-  } catch(error) {
-    $('#accErr').textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-};
-
-window.openDeleteAccountModal = function(accountId){
-  const account = S.accounts.find(a => a.id === accountId);
-  if(!account) return;
-  if(S.accounts.length <= 1){ alert(t('accounts.min_one')); return; }
-  deletingAccount = account;
-  const used = S.transactions.filter(x => x.account_id === account.id).length;
-  $('#deleteAccountTitle').textContent = t('accounts.delete_confirm', {name: account.name});
-  $('#deleteAccErr').textContent = '';
-  if(used > 0){
-    $('#deleteAccountHint').textContent = t('accounts.delete_with_txn', {name: account.name, count: used});
-    $('#moveToField').style.display = 'block';
-    $('#moveToAccount').innerHTML = S.accounts
-      .filter(a => a.id !== account.id)
-      .map(a => `<option value="${a.id}">${a.icon} ${esc(a.name)}</option>`).join('');
-  } else {
-    $('#deleteAccountHint').textContent = '';
-    $('#moveToField').style.display = 'none';
-  }
-  $('#deleteAccountOverlay').classList.add('open');
-};
-
-function closeDeleteAccountModal(){
-  $('#deleteAccountOverlay').classList.remove('open');
-  deletingAccount = null;
-}
-$('#cancelDeleteAccountBtn').onclick = closeDeleteAccountModal;
-$('#deleteAccountOverlay').onclick = e => { if(e.target === $('#deleteAccountOverlay')) closeDeleteAccountModal(); };
-
-$('#confirmDeleteAccountBtn').onclick = async () => {
-  if(!deletingAccount) return;
-  const button = $('#confirmDeleteAccountBtn');
-  button.disabled = true;
-  try {
-    const payload = {period: S.period};
-    if($('#moveToField').style.display !== 'none'){
-      payload.move_to = parseInt($('#moveToAccount').value, 10);
-    }
-    const response = await fetch(`/api/accounts/${deletingAccount.id}`, {
-      method: 'DELETE',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
-    if(!response.ok) throw new Error(data.error || t('common.error'));
-    S = data.state;
-    closeDeleteAccountModal();
-    render();
-  } catch(error) {
-    $('#deleteAccErr').textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-};
-
-document.addEventListener('keydown', e => {
-  if(e.key !== 'Escape') return;
-  closeModal(); closeBalanceModal(); closeAccountModal(); closeDeleteAccountModal();
-});
-
-/* Đổi ngôn ngữ / tiền tệ: vẽ lại toàn bộ số liệu đang hiển thị. */
-BB.onChange(() => {
-  document.querySelectorAll('.bb-cur').forEach(el => { el.textContent = BB.symbol(); });
-  if(S) render();
-});
 
 setupReceiptUpload();
 load();

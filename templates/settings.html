@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cài đặt · Budget Buddy</title>
+  <title>Settings · Budget Buddy</title>
+  <script>window.BB_PREFERENCES = {{ app_preferences|tojson }};</script>
+  <script src="{{ url_for('static', filename='js/preferences.js') }}"></script>
   <style>
     * { box-sizing: border-box; }
     :root { --primary:#0f766e; --ink:#17332f; --muted:#64748b; --line:#dce9e6; }
@@ -35,125 +37,112 @@
     dialog { width:min(460px,calc(100% - 32px)); border:0; border-radius:18px; padding:26px; box-shadow:0 25px 80px rgba(15,23,42,.25); }
     dialog::backdrop { background:rgba(15,23,42,.55); }
     label { display:block; margin:14px 0 6px; font-size:13px; font-weight:750; }
-    input[type=password], input[type=text] { width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:12px; font:inherit; }
+    input[type=password], input[type=text], select { width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:12px; font:inherit; background:#fff; }
+    .preference-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px; }
+    .preference-grid label { margin-top:0; }
     .actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
     .cancel { background:#e2e8f0; color:#334155; }
     #message { min-height:22px; margin:14px 0 0; font-size:14px; color:#047857; }
     #deleteError { color:#b91c1c; min-height:20px; font-size:14px; }
-    .pref-select { border:1px solid #cbd5e1; border-radius:10px; padding:9px 12px; font:inherit; font-weight:700; background:#fff; cursor:pointer; min-width:170px; }
-    .pref-select:focus { outline:2px solid var(--primary); outline-offset:1px; }
-    @media(max-width:600px){ .identity{grid-template-columns:1fr} header{padding:0 16px} .card{padding:20px} }
+    @media(max-width:600px){ .identity,.preference-grid{grid-template-columns:1fr} header{padding:0 16px} .card{padding:20px} }
   </style>
-<script>window.BB_PREFS = {language: "{{ user.language or 'vi' }}", currency: "{{ user.currency or 'VND' }}"};</script>
-<script src="{{ url_for('static', filename='js/bb-i18n.js') }}"></script>
 </head>
 <body>
   <header>
-    <a class="brand" href="/"><span>Budget Buddy</span> Smart Finance</a>
-    <nav><a href="/" data-i18n="nav.overview">Tổng quan</a><a href="/logout" data-i18n="nav.logout">Đăng xuất</a></nav>
+    <a class="brand" href="/"><span>Budget Buddy</span> · Smart Finance</a>
+    <nav><a href="/">Overview</a><a href="/logout">Logout</a></nav>
   </header>
   <main>
-    <h1 data-i18n="settings.title">Cài đặt tài khoản</h1>
-    <p class="lead" data-i18n="settings.lead">Quản lý email thông báo và dữ liệu cá nhân của bạn.</p>
+    <h1>Account settings</h1>
+    <p class="lead">Manage email notifications and your personal data.</p>
 
     <section class="card">
-      <h2 data-i18n="settings.identity">Thông tin tài khoản</h2>
+      <h2>Account information</h2>
       <div class="identity">
-        <div><div class="label" data-i18n="settings.username">Tên đăng nhập</div><div class="value">{{ user.username }}</div></div>
-        <div><div class="label" data-i18n="settings.email">Email</div><div class="value">{{ user.email }}</div></div>
-        <div><div class="label" data-i18n="settings.email_status">Trạng thái email</div>
-        <div class="value verified" data-i18n="{% if user.email_verified %}settings.verified{% else %}settings.unverified{% endif %}">{% if user.email_verified %}✓ Đã xác minh{% else %}Chưa xác minh{% endif %}</div></div>
+        <div><div class="label">Username</div><div class="value">{{ user.username }}</div></div>
+        <div><div class="label">Email</div><div class="value">{{ user.email }}</div></div>
+        <div><div class="label">Email status</div><div class="value verified">{% if user.email_verified %}✓ Verified{% else %}Not verified{% endif %}</div></div>
       </div>
     </section>
 
     <section class="card">
-      <h2 data-i18n="settings.display">Ngôn ngữ &amp; đơn vị tiền</h2>
-      <div class="option">
-        <span><strong data-i18n="common.language">Ngôn ngữ</strong>
-        <p data-i18n="settings.language_hint">Áp dụng cho toàn bộ giao diện.</p></span>
-        <select id="languageSelect" class="pref-select"></select>
+      <h2>Language & currency</h2>
+      <div class="preference-grid">
+        <label>Language
+          <select id="language">
+            <option value="en" {% if user.preferred_language == 'en' %}selected{% endif %}>English</option>
+            <option value="vi" {% if user.preferred_language == 'vi' %}selected{% endif %}>Tiếng Việt</option>
+          </select>
+        </label>
+        <label>Display currency
+          <select id="currency">
+            <option value="VND" {% if user.preferred_currency == 'VND' %}selected{% endif %}>VND (₫)</option>
+            <option value="USD" {% if user.preferred_currency == 'USD' %}selected{% endif %}>USD ($)</option>
+          </select>
+        </label>
       </div>
-      <div class="option">
-        <span><strong data-i18n="common.currency">Đơn vị tiền</strong>
-        <p data-i18n="settings.currency_hint">Số tiền luôn được lưu bằng VND.</p></span>
-        <select id="currencySelect" class="pref-select"></select>
-      </div>
-      <p style="font-size:13px;color:var(--muted);margin:6px 0 0" data-i18n="common.rate_note"></p>
+      <p style="color:var(--muted);font-size:13px;margin:-8px 0 20px">Amounts are stored safely in VND. USD display uses the configured conversion rate.</p>
+      <button class="primary" id="saveRegional">Save preferences</button>
+      <div id="regionalMessage"></div>
     </section>
 
     <section class="card">
-      <h2 data-i18n="settings.notifications">Thông báo email</h2>
+      <h2>Email notifications</h2>
       <label class="option">
-        <span><strong data-i18n="settings.weekly">Báo cáo chi tiêu hàng tuần</strong>
-        <p data-i18n="settings.weekly_hint">Nhận tổng hợp thu, chi và các nhóm chi tiêu lớn.</p></span>
+        <span><strong>Weekly spending report</strong><p>Receive an income and spending summary, a comparison with last week, and your largest spending categories.</p></span>
         <input id="weekly" type="checkbox" {% if user.weekly_email_enabled %}checked{% endif %}>
       </label>
       <label class="option">
-        <span><strong data-i18n="settings.budget_alert">Cảnh báo vượt ngân sách</strong>
-        <p data-i18n="settings.budget_alert_hint">Gửi email một lần khi một danh mục vừa vượt hạn mức.</p></span>
+        <span><strong>Budget limit alerts</strong><p>Send one email when a category first crosses its monthly limit.</p></span>
         <input id="budget" type="checkbox" {% if user.budget_alerts_enabled %}checked{% endif %}>
       </label>
-      <button class="primary" id="savePreferences" data-i18n="settings.save_prefs">Lưu tùy chọn</button>
+      <button class="primary" id="savePreferences">Save preferences</button>
       <div id="message"></div>
     </section>
 
     <section class="card danger">
-      <h2 data-i18n="settings.danger">Xóa tài khoản</h2>
-      <p data-i18n="settings.danger_hint">Xóa vĩnh viễn tài khoản cùng toàn bộ dữ liệu.</p>
-      <button id="openDelete" data-i18n="settings.delete_btn">Xóa tài khoản</button>
+      <h2>Danger zone</h2>
+      <p>Delete your account and all accounts, transactions, budgets, and goals permanently. This data cannot be recovered.</p>
+      <button id="openDelete">Delete account</button>
     </section>
   </main>
 
   <dialog id="deleteDialog">
-    <h2 data-i18n="settings.delete_title">Xác nhận xóa tài khoản</h2>
-    <p data-i18n="settings.delete_hint" data-i18n-html>Nhập mật khẩu và chữ <strong>DELETE</strong>.</p>
-    <label for="password" data-i18n="settings.password">Mật khẩu</label>
+    <h2>Confirm account deletion</h2>
+    <p>Enter your password and the word <strong>DELETE</strong>. This action cannot be undone.</p>
+    <label for="password">Password</label>
     <input id="password" type="password" autocomplete="current-password">
-    <label for="confirmation" data-i18n="settings.type_delete">Nhập DELETE</label>
+    <label for="confirmation">Enter DELETE</label>
     <input id="confirmation" type="text" autocomplete="off">
     <div id="deleteError"></div>
-    <div class="actions"><button class="cancel" id="cancelDelete" data-i18n="common.cancel">Hủy</button>
-    <button class="danger" id="confirmDelete" data-i18n="settings.delete_forever">Xóa vĩnh viễn</button></div>
+    <div class="actions"><button class="cancel" id="cancelDelete">Cancel</button><button class="danger" id="confirmDelete">Delete permanently</button></div>
   </dialog>
   <script>
     const message = document.getElementById('message');
     const weekly = document.getElementById('weekly');
     const budget = document.getElementById('budget');
+    const language = document.getElementById('language');
+    const currency = document.getElementById('currency');
     const password = document.getElementById('password');
     const confirmation = document.getElementById('confirmation');
-    const languageSelect = document.getElementById('languageSelect');
-    const currencySelect = document.getElementById('currencySelect');
-
-    /* Hai select này là bản đầy đủ của widget đổi nhanh trên thanh trên cùng. */
-    function fillPreferenceSelects(){
-      languageSelect.innerHTML = BB.LANGUAGES
-        .map(l => `<option value="${l.code}">${l.flag} ${l.label}</option>`).join('');
-      currencySelect.innerHTML = BB.CURRENCIES
-        .map(c => `<option value="${c.code}">${c.symbol} ${c.code} — ${c.label}</option>`).join('');
-      languageSelect.value = BB.lang;
-      currencySelect.value = BB.currency;
-    }
-    fillPreferenceSelects();
-    languageSelect.onchange = e => BB.setLanguage(e.target.value);
-    currencySelect.onchange = e => BB.setCurrency(e.target.value);
-    BB.onChange(() => {
-      languageSelect.value = BB.lang;
-      currencySelect.value = BB.currency;
-      message.textContent = '';
-    });
-
+    document.getElementById('saveRegional').onclick = async () => {
+      const regionalMessage = document.getElementById('regionalMessage');
+      const response = await fetch('/api/account/preferences', {
+        method: 'PATCH', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({preferred_language: language.value, preferred_currency: currency.value})
+      });
+      const result = await response.json();
+      regionalMessage.textContent = response.ok ? BB.text('Preferences saved.', 'Đã lưu tùy chọn.') : (result.error || BB.text('Unable to save preferences.', 'Không thể lưu tùy chọn.'));
+      regionalMessage.style.color = response.ok ? '#047857' : '#b91c1c';
+      if (response.ok) window.setTimeout(() => window.location.reload(), 350);
+    };
     document.getElementById('savePreferences').onclick = async () => {
       const response = await fetch('/api/account/preferences', {
         method: 'PATCH', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          weekly_email_enabled: weekly.checked,
-          budget_alerts_enabled: budget.checked,
-          language: BB.lang,
-          currency: BB.currency
-        })
+        body: JSON.stringify({weekly_email_enabled: weekly.checked, budget_alerts_enabled: budget.checked})
       });
       const result = await response.json();
-      message.textContent = response.ok ? BB.t('settings.saved') : (result.error || BB.t('settings.save_failed'));
+      message.textContent = response.ok ? BB.text('Preferences saved.', 'Đã lưu tùy chọn.') : (result.error || BB.text('Unable to save preferences.', 'Không thể lưu tùy chọn.'));
       message.style.color = response.ok ? '#047857' : '#b91c1c';
     };
     const dialog = document.getElementById('deleteDialog');
@@ -166,7 +155,7 @@
       });
       const result = await response.json();
       if (response.ok) window.location.href = result.redirect || '/login';
-      else document.getElementById('deleteError').textContent = result.error || BB.t('common.error');
+      else document.getElementById('deleteError').textContent = result.error || BB.text('Unable to delete the account.', 'Không thể xóa tài khoản.');
     };
   </script>
 </body>

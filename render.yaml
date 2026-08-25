@@ -33,6 +33,8 @@ services:
         sync: false
       - key: APP_TIMEZONE
         value: Asia/Ho_Chi_Minh
+      - key: USD_VND_RATE
+        value: "25000"
       - key: EMAIL_VERIFICATION_REQUIRED
         value: "1"
       - key: OPENAI_API_KEY
@@ -70,6 +72,8 @@ services:
         sync: false
       - key: APP_TIMEZONE
         value: Asia/Ho_Chi_Minh
+      - key: USD_VND_RATE
+        value: "25000"
       - key: EMAIL_USER
         sync: false
       - key: EMAIL_FROM

@@ -1,9 +1,17 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Xác minh email · Budget Buddy</title>
+  <title>Verify email · Budget Buddy</title>
+  <script>
+    window.BB_PREFERENCES = {
+      language: localStorage.getItem('bb-entry-language') === 'vi' ? 'vi' : 'en',
+      currency: 'VND',
+      usd_vnd_rate: {{ app_preferences.usd_vnd_rate|tojson }}
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/preferences.js') }}"></script>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; font-family: Inter, system-ui, sans-serif; background: #f3faf8; color: #16302c; }
@@ -24,17 +32,17 @@
 <body>
   <main class="card">
     <div class="logo">✉</div>
-    <h1>Kiểm tra hộp thư của bạn</h1>
-    <p>Chúng tôi đã gửi liên kết xác minh tới <strong>{{ email or 'email bạn đăng ký' }}</strong>. Liên kết có hiệu lực trong 24 giờ.</p>
+    <h1>Check your inbox</h1>
+    <p><span>We sent a verification link to</span> <strong>{{ email or 'your registered email' }}</strong>. <span>The link is valid for 24 hours.</span></p>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
     {% endwith %}
     <form action="/api/resend-verification" method="post">
-      <label for="email">Chưa nhận được email?</label>
+      <label for="email">Did not receive the email?</label>
       <input id="email" name="email" type="email" required value="{{ email }}" placeholder="name@example.com">
-      <button type="submit">Gửi lại email xác minh</button>
+      <button type="submit">Resend verification email</button>
     </form>
-    <a class="back" href="/login">← Quay lại đăng nhập</a>
+    <a class="back" href="/login">← Back to login</a>
   </main>
 </body>
 </html>

@@ -1,9 +1,17 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Budget Buddy - Login</title>
+  <script>
+    window.BB_PREFERENCES = {
+      language: localStorage.getItem('bb-entry-language') === 'vi' ? 'vi' : 'en',
+      currency: 'VND',
+      usd_vnd_rate: {{ app_preferences.usd_vnd_rate|tojson }}
+    };
+  </script>
+  <script src="{{ url_for('static', filename='js/preferences.js') }}"></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -50,8 +58,9 @@
     .alert { background: #FEE2E2; color: #991B1B; padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; margin-bottom: 16px; }
     .form-box { display: none; }
     .form-box.active { display: block; }
+    .language-row { display:flex; justify-content:flex-end; margin:-8px 0 14px; }
+    .language-row select { border:1px solid var(--border); border-radius:9px; padding:7px 10px; background:#fff; color:var(--text); font:inherit; font-size:12px; font-weight:700; }
   </style>
-<script src="{{ url_for('static', filename='js/bb-i18n.js') }}"></script>
 </head>
 <body>
 
@@ -60,8 +69,15 @@
       <div class="logo">💰</div>
       <div>
         <h1 style="font-size: 18px; font-weight: 800;">Budget Buddy</h1>
-        <span style="font-size: 12px; color: var(--muted);" data-i18n="brand.tagline">Smart Finance</span>
+        <span style="font-size: 12px; color: var(--muted);">Smart Finance</span>
       </div>
+    </div>
+
+    <div class="language-row">
+      <select id="entryLanguage" aria-label="Language">
+        <option value="en">English</option>
+        <option value="vi">Tiếng Việt</option>
+      </select>
     </div>
 
     <!-- Thông báo lỗi (nếu có) -->
@@ -73,49 +89,56 @@
       {% endif %}
     {% endwith %}
 
-    <div style="display:flex;justify-content:center;margin-bottom:16px"><div data-bb-switcher></div></div>
-
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('login')" data-i18n="auth.login">Đăng nhập</button>
-      <button class="tab-btn" onclick="switchTab('signup')" data-i18n="auth.signup">Đăng ký</button>
+      <button class="tab-btn active" onclick="switchTab('login')">Log in</button>
+      <button class="tab-btn" onclick="switchTab('signup')">Sign up</button>
     </div>
 
     <!-- FORM LOGIN -->
     <form id="loginForm" class="form-box active" action="/api/login" method="POST">
       <div class="field">
-        <label data-i18n="auth.username">Username</label>
-        <input type="text" name="username" required data-i18n-placeholder="auth.username_hint" placeholder="Nhập username">
+        <label>Username</label>
+        <input type="text" name="username" required placeholder="Enter username">
       </div>
       <div class="field">
-        <label data-i18n="auth.password">Mật khẩu</label>
+        <label>Password</label>
         <input type="password" name="password" required placeholder="••••••••">
       </div>
-      <button type="submit" class="btn" data-i18n="auth.login">Đăng nhập</button>
+      <button type="submit" class="btn">Log in</button>
     </form>
 
     <!-- FORM SIGNUP -->
     <form id="signupForm" class="form-box" action="/api/signup" method="POST">
+      <input type="hidden" name="preferred_language" id="signupLanguage" value="en">
+      <input type="hidden" name="preferred_currency" value="VND">
       <div class="field">
-        <label data-i18n="auth.username">Username</label>
-        <input type="text" name="username" required data-i18n-placeholder="auth.username_hint" placeholder="Nhập username">
+        <label>Username</label>
+        <input type="text" name="username" required placeholder="Enter username">
       </div>
       <div class="field">
-        <label data-i18n="auth.email">Email</label>
+        <label>Email</label>
         <input type="email" name="email" required placeholder="name@example.com">
       </div>
       <div class="field">
-        <label data-i18n="auth.password">Mật khẩu</label>
+        <label>Password</label>
         <input type="password" name="password" required placeholder="••••••••">
       </div>
       <div class="field">
-        <label data-i18n="auth.confirm">Nhập lại mật khẩu</label>
+        <label>Confirm password</label>
         <input type="password" name="confirm_password" required placeholder="••••••••">
       </div>
-      <button type="submit" class="btn" data-i18n="auth.create">Tạo tài khoản</button>
+      <button type="submit" class="btn">Create account</button>
     </form>
   </div>
 
   <script>
+    const entryLanguage = document.getElementById('entryLanguage');
+    entryLanguage.value = BB.language;
+    document.getElementById('signupLanguage').value = BB.language;
+    entryLanguage.onchange = () => {
+      localStorage.setItem('bb-entry-language', entryLanguage.value);
+      window.location.reload();
+    };
     function switchTab(tab) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.form-box').forEach(box => box.classList.remove('active'));
