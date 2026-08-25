@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Buddy — Overview</title>
 <script>window.BB_PREFERENCES = {{ app_preferences|tojson }};</script>
-<script src="{{ url_for('static', filename='js/preferences.js') }}"></script>
+<script src="{{ url_for('static', filename='js/preferences.js', v='20260825-2') }}"></script>
+<script src="{{ url_for('static', filename='js/nav-badges.js', v='20260825-1') }}"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -126,6 +127,15 @@ body{
   padding:7px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:.16s;
 }
 .edit-balance-btn:hover{border-color:var(--accent);background:#F0FDFA}
+.danger-zone{
+  margin-top:20px;padding-top:18px;border-top:1px solid #FECACA;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+}
+.danger-zone strong{display:block;color:#B91C1C;font-size:13px;margin-bottom:3px}
+.danger-zone small{display:block;color:var(--muted);font-size:11.5px;line-height:1.45}
+.btn.danger{background:#fff;color:#DC2626;border:1px solid #FECACA;box-shadow:none;white-space:nowrap}
+.btn.danger:hover{background:#FEF2F2;border-color:#DC2626;box-shadow:none}
+.btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
 /* ---------- Table ---------- */
 table{width:100%;border-collapse:collapse}
 th{
@@ -204,11 +214,11 @@ canvas{max-width:100%}
       <div><h1>Budget Buddy</h1><span> Smart Finance</span></div>
     </div>
     <nav class="nav" id="nav">
-      <button data-tab="overview" class="active">&#127968; <span class="lbl">Overview</span></button>
-      <button data-tab="transactions" onclick="window.location.href='transactions'">&#8596;&#65039; <span class="lbl">Transactions</span></button>
-      <button data-tab="budgets" onclick="window.location.href='budgets'">&#128202; <span class="lbl">Budgets</span><i class="dot" id="budDot" style="display:none"></i></button>
-      <button data-tab="goals" onclick="window.location.href='goals'">&#127919; <span class="lbl">Goals</span></button>
-      <button data-tab="ai-coach" onclick="window.location.href='ai-coach'">&#10024; <span class="lbl">AI Coach</span></button>
+      <button data-tab="overview" data-nav-section="overview" class="active">&#127968; <span class="lbl">Overview</span></button>
+      <button data-tab="transactions" data-nav-section="transactions" onclick="window.location.href='transactions'">&#8596;&#65039; <span class="lbl">Transactions</span></button>
+      <button data-tab="budgets" data-nav-section="budgets" onclick="window.location.href='budgets'">&#128202; <span class="lbl">Budgets</span></button>
+      <button data-tab="goals" data-nav-section="goals" onclick="window.location.href='goals'">&#127919; <span class="lbl">Goals</span></button>
+      <button data-tab="ai-coach" data-nav-section="ai-coach" onclick="window.location.href='ai-coach'">&#10024; <span class="lbl">AI Coach</span></button>
     </nav>
     <div class="profile">
       <div style="display: flex; gap: 12px; align-items: center; min-width: 0;">
@@ -232,7 +242,7 @@ canvas{max-width:100%}
   </aside>
   <main class="main">
     <header class="topbar">
-      <div><h2 id="pageTitle">Overview</h2><p id="pageSub"> &middot; All accounts synced</p></div>
+      <div><h2 id="pageTitle">Overview</h2><p id="pageSub">July 2025 &middot; All accounts synced</p></div>
       <div style="display:flex;gap:12px;align-items:center">
         <div class="synced"><i class="pulse"></i> Synced</div>
         <button class="btn" id="openModal">+ Add Transaction</button>
@@ -287,24 +297,31 @@ canvas{max-width:100%}
   </div>
 </div>
 
-<div class="overlay" id="balanceOverlay">
-  <div class="modal" style="width:420px">
-    <h3>Chỉnh số dư tài khoản</h3>
+<div class="overlay" id="accountEditOverlay">
+  <div class="modal" style="width:460px">
+    <h3>Edit funding source</h3>
     <div class="field">
-      <label>Tài khoản</label>
-      <div id="balanceAccountName" style="font-weight:800"></div>
+      <label>Funding source name</label>
+      <input id="accountName" type="text" maxlength="100" autocomplete="off">
     </div>
     <div class="field">
-      <label>Current balance (<span data-currency-label>VND</span>)</label>
-      <input id="balanceAmount" type="number" min="0" step="any" inputmode="decimal">
+      <label><span>Current balance</span> (<span data-currency-label>VND</span>)</label>
+      <input id="accountBalance" type="number" min="0" step="any" inputmode="decimal">
     </div>
     <div style="font-size:12px;color:var(--muted);margin:-4px 0 14px">
-      Lịch sử giao dịch được giữ nguyên. Số dư mới sẽ đồng bộ trên toàn ứng dụng.
+      Transaction history is preserved when you change the name or balance. Updates are synchronized throughout the app.
     </div>
-    <div class="err" id="balanceErr"></div>
+    <div class="err" id="accountEditErr"></div>
     <div class="row2">
-      <button class="btn ghost" id="cancelBalanceBtn">Hủy</button>
-      <button class="btn" id="saveBalanceBtn">Lưu số dư</button>
+      <button class="btn ghost" id="cancelAccountEditBtn">Cancel</button>
+      <button class="btn" id="saveAccountEditBtn">Save changes</button>
+    </div>
+    <div class="danger-zone">
+      <div>
+        <strong>Delete funding source</strong>
+        <small>Transactions linked to this source will also be permanently deleted.</small>
+      </div>
+      <button class="btn danger" id="deleteFundingSourceBtn" type="button">Delete</button>
     </div>
   </div>
 </div>
@@ -485,8 +502,8 @@ function render(){
   $('#uname').textContent = S.user.name;
   $('#uplan').textContent = S.user.plan;
   $('#avatar').textContent = S.user.initials;
-  $('#budDot').style.display = S.budgets.some(b => b.over > 0) ? 'block' : 'none';
   $('#view').innerHTML = vOverview();
+  BBNavBadges.update(S);
   after();
 }
 
@@ -538,7 +555,7 @@ function vOverview(){
           <div class="tile" style="background:#F1F5F9">${a.icon}</div>
           <div><b>${esc(a.name)}</b><small>${t}</small></div>
           <div class="amt">${full(a.balance)}<small>&#9679; Active</small></div>
-          <button type="button" class="edit-balance-btn" onclick="openBalanceModal(${a.id})">Chỉnh sửa</button>
+          <button type="button" class="edit-balance-btn" onclick="openAccountEditModal(${a.id})">Edit</button>
         </div>`).join('') + '</div>';
   }).join('');
   return alert + `
@@ -692,19 +709,20 @@ function openModal(){
 }
 
 function closeModal(){ $('#overlay').classList.remove('open'); }
-function openBalanceModal(accountId){
+function openAccountEditModal(accountId){
   const account = S.accounts.find(a => a.id === accountId);
   if(!account) return;
   editingAccountId = accountId;
-  $('#balanceAccountName').textContent = `${account.icon} ${account.name}`;
-  $('#balanceAmount').value = BB.inputValue(account.balance);
-  $('#balanceErr').textContent = '';
-  $('#balanceOverlay').classList.add('open');
-  $('#balanceAmount').focus();
-  $('#balanceAmount').select();
+  $('#accountName').value = account.name;
+  $('#accountBalance').value = BB.inputValue(account.balance);
+  $('#accountEditErr').textContent = '';
+  $('#deleteFundingSourceBtn').disabled = S.accounts.length <= 1;
+  $('#accountEditOverlay').classList.add('open');
+  $('#accountName').focus();
+  $('#accountName').select();
 }
-function closeBalanceModal(){
-  $('#balanceOverlay').classList.remove('open');
+function closeAccountEditModal(){
+  $('#accountEditOverlay').classList.remove('open');
   editingAccountId = null;
 }
 function setType(t){
@@ -721,35 +739,75 @@ $('#tInc').onclick = () => setType('income');
 $('#fAcc').onchange = updatePreview;
 $('#fAmount').oninput = updatePreview;
 $('#overlay').onclick = e => { if(e.target === $('#overlay')) closeModal(); };
-$('#cancelBalanceBtn').onclick = closeBalanceModal;
-$('#balanceOverlay').onclick = e => { if(e.target === $('#balanceOverlay')) closeBalanceModal(); };
-$('#balanceAmount').onkeydown = e => { if(e.key === 'Enter') $('#saveBalanceBtn').click(); };
+$('#cancelAccountEditBtn').onclick = closeAccountEditModal;
+$('#accountEditOverlay').onclick = e => { if(e.target === $('#accountEditOverlay')) closeAccountEditModal(); };
+$('#accountName').onkeydown = e => { if(e.key === 'Enter') $('#saveAccountEditBtn').click(); };
+$('#accountBalance').onkeydown = e => { if(e.key === 'Enter') $('#saveAccountEditBtn').click(); };
 
-$('#saveBalanceBtn').onclick = async () => {
-  const displayBalance = Number($('#balanceAmount').value);
+$('#saveAccountEditBtn').onclick = async () => {
+  const name = $('#accountName').value.trim();
+  const displayBalance = Number($('#accountBalance').value);
   const balance = BB.toBase(displayBalance);
-  if(!Number.isFinite(displayBalance) || displayBalance < 0){
-    $('#balanceErr').textContent = BB.text(`Enter a valid balance of 0 ${BB.currencyLabel()} or more.`, `Vui lòng nhập số dư hợp lệ, từ 0 ${BB.currencyLabel()} trở lên.`);
+  if(!name){
+    $('#accountEditErr').textContent = BB.text('Funding source name is required.', 'Vui lòng nhập tên nguồn tiền.');
     return;
   }
-  const button = $('#saveBalanceBtn');
+  if(!Number.isFinite(displayBalance) || displayBalance < 0){
+    $('#accountEditErr').textContent = BB.text(`Enter a valid balance of 0 ${BB.currencyLabel()} or more.`, `Vui lòng nhập số dư hợp lệ, từ 0 ${BB.currencyLabel()} trở lên.`);
+    return;
+  }
+  const button = $('#saveAccountEditBtn');
   button.disabled = true;
-  $('#balanceErr').textContent = '';
+  $('#deleteFundingSourceBtn').disabled = true;
+  $('#accountEditErr').textContent = '';
   try {
-    const response = await fetch(`/api/accounts/${editingAccountId}/balance`, {
+    const response = await fetch(`/api/accounts/${editingAccountId}`, {
       method: 'PATCH',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({balance, period:S.period})
+      body: JSON.stringify({name, balance, period:S.period})
     });
     const data = await response.json();
-    if(!response.ok) throw new Error(data.error || 'Không thể cập nhật số dư.');
+    if(!response.ok) throw new Error(data.error || BB.text('Unable to update the funding source.', 'Không thể cập nhật nguồn tiền.'));
     S = data.state;
-    closeBalanceModal();
+    closeAccountEditModal();
     render();
   } catch(error) {
-    $('#balanceErr').textContent = error.message;
+    $('#accountEditErr').textContent = error.message;
   } finally {
     button.disabled = false;
+    if(editingAccountId !== null) $('#deleteFundingSourceBtn').disabled = S.accounts.length <= 1;
+  }
+};
+
+$('#deleteFundingSourceBtn').onclick = async () => {
+  const account = S.accounts.find(a => a.id === editingAccountId);
+  if(!account) return;
+  const warning = BB.text(
+    `Delete “${account.name}” and all transactions linked to it? This cannot be undone.`,
+    `Xóa “${account.name}” và toàn bộ giao dịch gắn với nguồn tiền này? Hành động này không thể hoàn tác.`
+  );
+  if(!window.confirm(warning)) return;
+
+  const deleteButton = $('#deleteFundingSourceBtn');
+  deleteButton.disabled = true;
+  $('#saveAccountEditBtn').disabled = true;
+  $('#accountEditErr').textContent = '';
+  try {
+    const response = await fetch(`/api/accounts/${editingAccountId}`, {
+      method: 'DELETE',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({period:S.period})
+    });
+    const data = await response.json();
+    if(!response.ok) throw new Error(data.error || BB.text('Unable to delete the funding source.', 'Không thể xóa nguồn tiền.'));
+    S = data.state;
+    closeAccountEditModal();
+    render();
+  } catch(error) {
+    $('#accountEditErr').textContent = error.message;
+  } finally {
+    $('#saveAccountEditBtn').disabled = false;
+    if(editingAccountId !== null) deleteButton.disabled = S.accounts.length <= 1;
   }
 };
 

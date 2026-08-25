@@ -222,6 +222,84 @@ class BudgetBuddyIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(forbidden.status_code, 404)
 
+    def test_funding_source_edit_rename_balance_and_delete(self):
+        self.signup("source_editor", "source_editor@example.com")
+        state = self.client.get("/api/state?period=2026-08").get_json()
+        wallet = next(a for a in state["accounts"] if a["name"] == "Personal Wallet")
+        bank = next(a for a in state["accounts"] if a["name"] == "MB Bank")
+        food = next(c for c in state["categories"] if c["name"] == "Food & Drinks")
+
+        duplicate = self.client.patch(
+            f'/api/accounts/{wallet["id"]}',
+            json={"name": bank["name"].lower(), "balance": 600_000},
+        )
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertEqual(duplicate.get_json()["error"], "Funding source name already exists.")
+
+        renamed = self.client.patch(
+            f'/api/accounts/{wallet["id"]}',
+            json={"name": "  Daily   Wallet  ", "balance": 750_000, "period": "2026-08"},
+        )
+        self.assertEqual(renamed.status_code, 200)
+        renamed_state = renamed.get_json()["state"]
+        renamed_wallet = next(a for a in renamed_state["accounts"] if a["id"] == wallet["id"])
+        self.assertEqual(renamed_wallet["name"], "Daily Wallet")
+        self.assertEqual(renamed_wallet["balance"], 750_000)
+        self.assertEqual(renamed_state["kpi"]["balance"], 3_030_000)
+
+        transaction = self.client.post(
+            "/api/transactions",
+            json={
+                "merchant": "Lunch to remove",
+                "amount": 25_000,
+                "date": "2026-08-15",
+                "type": "expense",
+                "account_id": wallet["id"],
+                "category_id": food["id"],
+            },
+        )
+        self.assertEqual(transaction.status_code, 201)
+        goal = self.client.post(
+            "/api/goals",
+            json={
+                "name": "Linked goal",
+                "target": 1_000_000,
+                "saved": 0,
+                "deadline": "Dec 2026",
+                "account_id": wallet["id"],
+            },
+        )
+        self.assertEqual(goal.status_code, 201)
+
+        deleted = self.client.delete(
+            f'/api/accounts/{wallet["id"]}', json={"period": "2026-08"}
+        )
+        self.assertEqual(deleted.status_code, 200)
+        payload = deleted.get_json()
+        self.assertEqual(payload["deleted_transactions"], 1)
+        self.assertNotIn(wallet["id"], [a["id"] for a in payload["state"]["accounts"]])
+        self.assertEqual(payload["state"]["transactions"], [])
+        linked_goal = next(g for g in payload["state"]["goals"] if g["name"] == "Linked goal")
+        self.assertIsNone(linked_goal["account_id"])
+
+        remaining = list(payload["state"]["accounts"])
+        for source in remaining[1:]:
+            removed = self.client.delete(f'/api/accounts/{source["id"]}')
+            self.assertEqual(removed.status_code, 200)
+        last_source = remaining[0]
+        rejected_last = self.client.delete(f'/api/accounts/{last_source["id"]}')
+        self.assertEqual(rejected_last.status_code, 400)
+        self.assertEqual(len(self.client.get("/api/state").get_json()["accounts"]), 1)
+
+    def test_navigation_badges_are_available_on_finance_pages(self):
+        self.signup("badge_viewer", "badge_viewer@example.com")
+        for path in ("/", "/transactions", "/budgets", "/goals", "/ai-coach"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200, path)
+            html = response.get_data(as_text=True)
+            self.assertEqual(html.count('data-nav-section="'), 5, path)
+            self.assertIn("js/nav-badges.js", html, path)
+
     def test_goals_and_receipt_ocr_response_shape(self):
         self.signup("dana", "dana@example.com")
         created = self.client.post(

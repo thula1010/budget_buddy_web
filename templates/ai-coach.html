@@ -7,6 +7,7 @@
 <script>window.BB_PREFERENCES = {{ app_preferences|tojson }};</script>
 <script src="{{ url_for('static', filename='js/preferences.js') }}"></script>
 <script src="{{ url_for('static', filename='js/markdown.js') }}"></script>
+<script src="{{ url_for('static', filename='js/nav-badges.js', v='20260825-1') }}"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -139,11 +140,11 @@ body{
       <div><h1>Budget Buddy</h1><span> Smart Finance</span></div>
     </div>
     <nav class="nav">
-      <a href="/">&#127968; <span class="lbl">Overview</span></a>
-      <a href="transactions">&#8596;&#65039; <span class="lbl">Transactions</span></a>
-      <a href="budgets">&#10024; <span class="lbl">Budgets</span></a>
-      <a href="goals">&#127919; <span class="lbl">Goals</span></a>
-      <a href="ai-coach" class="active">&#10024; <span class="lbl">AI Coach</span></a>
+      <a href="/" data-nav-section="overview">&#127968; <span class="lbl">Overview</span></a>
+      <a href="transactions" data-nav-section="transactions">&#8596;&#65039; <span class="lbl">Transactions</span></a>
+      <a href="budgets" data-nav-section="budgets">&#128202; <span class="lbl">Budgets</span></a>
+      <a href="goals" data-nav-section="goals">&#127919; <span class="lbl">Goals</span></a>
+      <a href="ai-coach" data-nav-section="ai-coach" class="active">&#10024; <span class="lbl">AI Coach</span></a>
     </nav>
     <div class="profile">
       <div style="display: flex; gap: 12px; align-items: center; min-width: 0;">
@@ -203,6 +204,7 @@ window.addEventListener('focus', () => { if(!sending) load(); });
 
 function render(){
   if(!S) return;
+  BBNavBadges.update(S);
   $('#uname').textContent = S.user.name; $('#uplan').textContent = S.user.plan; $('#avatar').textContent = S.user.initials;
 
   const NC = {warn:['#F59E0B','#FFFBEB'], ai:['#A78BFA','#F5F3FF'], done:['#34D399','#ECFDF5']};

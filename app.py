@@ -886,6 +886,98 @@ def update_account_balance(account_id):
     })
 
 
+@app.route("/api/accounts/<int:account_id>", methods=["PATCH", "DELETE"])
+@login_required
+def manage_funding_source(account_id):
+    language = user_preferences(current_user)["language"]
+
+    def source_message(english, vietnamese):
+        return vietnamese if language == "vi" else english
+
+    account = Account.query.filter_by(id=account_id, user_id=current_user.id).first()
+    if not account:
+        return json_error(source_message("Funding source not found.", "Không tìm thấy nguồn tiền."), 404)
+
+    data = request.get_json(silent=True) or {}
+    period = data.get("period")
+
+    if request.method == "DELETE":
+        if Account.query.filter_by(user_id=current_user.id).count() <= 1:
+            return json_error(source_message(
+                "You must keep at least one funding source.",
+                "Bạn cần giữ lại ít nhất một nguồn tiền.",
+            ))
+
+        try:
+            deleted_transactions = Transaction.query.filter_by(
+                user_id=current_user.id, account_id=account.id
+            ).delete(synchronize_session=False)
+            Goal.query.filter_by(
+                user_id=current_user.id, account_id=account.id
+            ).update({Goal.account_id: None}, synchronize_session=False)
+            db.session.delete(account)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            app.logger.exception("Funding source deletion failed")
+            return json_error(source_message(
+                "Unable to delete the funding source right now. Please try again.",
+                "Không thể xóa nguồn tiền lúc này. Vui lòng thử lại.",
+            ), 500)
+
+        return jsonify({
+            "success": True,
+            "deleted_transactions": deleted_transactions,
+            "state": build_state(current_user, period),
+        })
+
+    name = data.get("name")
+    if not isinstance(name, str):
+        return json_error(source_message("Invalid funding source name.", "Tên nguồn tiền không hợp lệ."))
+    name = " ".join(name.split())
+    if not name:
+        return json_error(source_message(
+            "Funding source name is required.",
+            "Tên nguồn tiền không được để trống.",
+        ))
+    if len(name) > 100:
+        return json_error(source_message(
+            "Funding source name cannot exceed 100 characters.",
+            "Tên nguồn tiền không được vượt quá 100 ký tự.",
+        ))
+
+    duplicate = (
+        Account.query.filter(
+            Account.user_id == current_user.id,
+            Account.id != account.id,
+            db.func.lower(Account.name) == name.lower(),
+        ).first()
+    )
+    if duplicate:
+        return json_error(source_message(
+            "Funding source name already exists.",
+            "Tên nguồn tiền đã tồn tại.",
+        ))
+
+    try:
+        raw_balance = float(data.get("balance"))
+    except (TypeError, ValueError):
+        return json_error(source_message("Invalid balance.", "Số dư không hợp lệ."))
+    if not math.isfinite(raw_balance) or raw_balance < 0:
+        return json_error(source_message(
+            "Balance must be zero or greater.",
+            "Số dư phải là số không âm.",
+        ))
+
+    account.name = name
+    account.opening_balance = round(raw_balance) - account_transaction_delta(account)
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "state": build_state(current_user, period),
+    })
+
+
 @app.route("/api/transactions", methods=["GET"])
 @login_required
 def get_transactions():
